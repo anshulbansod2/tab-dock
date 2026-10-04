@@ -226,3 +226,19 @@ dev-only tooling.
   `snapshot` pushes (only each window's active tab is pushed to). The service worker can sleep.
 - Bars are injected on demand into tabs that predate install/update.
 - Host element is a custom `<hover-helper-bar>` tag tagged with a per-injection instance id.
+
+## Revision: modern web guidance (2026-10-05)
+
+- Paints are coalesced into one `requestAnimationFrame`; hiding or unmounting cancels a
+  pending frame.
+- Promise chains replaced with `async`/`await` (hello reply uses the IIFE + `return true`
+  pattern). The debounce timers and favicon cache stay in memory by design (alarms can't fire
+  under 30 s; both are disposable).
+- The host is a `popover="manual"` element shown in the top layer, falling back to
+  `position: fixed` where the API is missing.
+- Accessibility supersedes the section above: the bar is a `role="toolbar"` labelled
+  "Tabs in <group>" holding a `<ul>` of native `<button>`s; the page's own tab has
+  `aria-current="page"`; Delete (not Backspace) closes; full titles are the accessible name
+  and are truncated with CSS only (`ns.truncate` removed).
+- Theming uses `color-scheme: light dark` + `light-dark()` tokens instead of a duplicated
+  `prefers-color-scheme` block; `minimum_chrome_version` is now 123.
