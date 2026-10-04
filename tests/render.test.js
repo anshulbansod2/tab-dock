@@ -257,6 +257,11 @@ describe('styles', () => {
     expect(rule('.hh-tab')).toMatch(/min-width:\s*0/);
   });
 
+  it('drops the default-spot padding once the dock has been dragged somewhere', () => {
+    expect(ns.styles).toMatch(/:host\(\[data-placed\]\) \.hh-root\s*\{[^}]*padding:\s*0/);
+    expect(rule('.hh-bar')).toMatch(/max-width:\s*min\(960px, calc\(100vw - 24px\)\)/);
+  });
+
   it('fades the tab strip’s edges with a mask rather than an overlay', () => {
     expect(rule('.hh-tabs')).toMatch(/mask-image:\s*linear-gradient/);
   });

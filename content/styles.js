@@ -26,13 +26,16 @@
 .hh-bar {
   color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
   pointer-events: auto; position: relative; box-sizing: border-box;
-  display: flex; align-items: center; gap: 6px; min-width: 0; max-width: min(960px, 100%);
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  max-width: min(960px, calc(100vw - 24px)); user-select: none;
   height: 44px; padding: 6px 6px 6px 12px; border-radius: 16px;
   border: 1px solid var(--hh-edge);
   backdrop-filter: blur(20px) saturate(1.8);
   box-shadow: inset 0 1px 0 var(--hh-highlight), 0 2px 6px -2px rgb(0 0 0 / 0.12),
     0 12px 32px -12px rgb(0 0 0 / 0.35);
 }
+/* Dragged somewhere: the host is placed exactly at the dock, so no default-spot padding. */
+:host([data-placed]) .hh-root { padding: 0; }
 /* The group colour, glowing along the dock's lower edge. */
 .hh-bar::after {
   content: ''; position: absolute; inset: auto 28px -1px; height: 2px; border-radius: 2px;
@@ -43,9 +46,10 @@
 .hh-label {
   all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px;
   flex: none; max-width: 170px; height: 30px; padding: 0 12px 0 8px; margin-right: 2px;
-  border-radius: 10px; cursor: pointer; font-weight: 600; white-space: nowrap;
-  transition: background-color 120ms;
+  border-radius: 10px; cursor: grab; font-weight: 600; white-space: nowrap;
+  touch-action: none; transition: background-color 120ms;
 }
+.hh-label:active { cursor: grabbing; }
 .hh-label:hover { background: var(--hh-chip-hover); }
 .hh-label-text { overflow: hidden; text-overflow: ellipsis; }
 .hh-label + .hh-tabs { border-left: 1px solid var(--hh-edge); }

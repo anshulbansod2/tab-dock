@@ -43,7 +43,15 @@
     shadow.append(mount);
     const view = createView(mount);
 
+    const drag = ns.bindDrag({
+      host,
+      mount,
+      win: doc.defaultView ?? window,
+      storage,
+      storageEvents,
+    });
     const unmount = () => {
+      drag.dispose();
       view.dispose();
       connection.stop();
       host.remove();

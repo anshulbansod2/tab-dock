@@ -124,7 +124,7 @@
   function groupLabel(label) {
     const node = el('button', 'hh-label');
     node.type = 'button';
-    node.title = 'Collapse';
+    node.title = 'Click to collapse, drag to move';
     node.dataset.action = 'collapse';
     node.setAttribute('aria-expanded', 'true');
     node.append(el('span', 'hh-dot'), el('span', 'hh-label-text', label));

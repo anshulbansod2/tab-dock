@@ -22,6 +22,7 @@
         "content/render.js",
         "content/events.js",
         "content/connection.js",
+        "content/drag.js",
         "content/bar.js",
         "content/main.js"
       ]

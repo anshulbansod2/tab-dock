@@ -15,6 +15,7 @@
     /** Custom tag (not an id) so page markup can't collide with or block the bar. */
     HOST_TAG: 'hover-helper-bar',
     STORAGE_KEY: 'hoverHelper.collapsed',
+    POSITION_KEY: 'hoverHelper.position',
     UNGROUPED_LABEL: 'Ungrouped',
     NEUTRAL_COLOR: '#80868b',
     /** chrome.tabGroups.Color → the swatch Chrome draws for it. */

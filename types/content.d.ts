@@ -10,6 +10,7 @@ interface ContentConstants {
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
+  POSITION_KEY: string;
   UNGROUPED_LABEL: string;
   NEUTRAL_COLOR: string;
   GROUP_COLORS: Readonly<Record<string, string>>;
@@ -53,6 +54,25 @@ interface MountOptions {
   shadowMode: ShadowRootMode;
 }
 
+/** Dock position as fractions (0–1) of the space the viewport leaves around it. */
+interface Placement {
+  x: number;
+  y: number;
+}
+
+interface Box {
+  width: number;
+  height: number;
+}
+
+interface DragOptions {
+  host: HTMLElement;
+  mount: HTMLElement;
+  win: Window;
+  storage: chrome.storage.StorageArea;
+  storageEvents: typeof chrome.storage.onChanged;
+}
+
 interface MountedBar {
   host: HTMLElement;
   connection: Connection;
@@ -71,6 +91,11 @@ interface HoverHelperNamespace {
   render(mount: HTMLElement, view: BarView): void;
   bindEvents(mount: HTMLElement, handlers: BarHandlers): void;
   createConnection(options: ConnectionOptions): Connection;
+  placement: Readonly<{
+    toFraction(point: { left: number; top: number }, box: Box, viewport: Box): Placement;
+    toPixels(fraction: Placement, box: Box, viewport: Box): { left: number; top: number };
+  }>;
+  bindDrag(options: DragOptions): { dispose(): void };
   mountBar(options: MountOptions): MountedBar | null;
 }
 

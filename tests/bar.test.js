@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { createEvent, flushPromises } from './helpers/chrome.js';
 import { loadContent } from './helpers/content.js';
 
-const ORDER = ['core', 'format', 'styles', 'dom', 'render', 'events', 'connection', 'bar'];
+const ORDER = ['core', 'format', 'styles', 'dom', 'render', 'events', 'connection', 'drag', 'bar'];
 const KEY = 'hoverHelper.collapsed';
 const snapshot = {
   group: { id: 10, title: 'Work', color: 'blue' },
@@ -63,6 +63,11 @@ const q = (sel) => shadow().querySelector(sel);
 
 const push = (snap = snapshot) =>
   runtime.onMessage.emit({ type: 'snapshot', snapshot: snap }, { id: 'ext-id' });
+/** Makes the next read of the collapsed key behave as given; other keys read as empty. */
+function onCollapsedRead(result) {
+  storage.get.mockImplementation(async (key) => (key === KEY ? result() : {}));
+}
+
 const actions = () =>
   runtime.sendMessage.mock.calls.map(([m]) => m).filter((m) => m.type !== 'hello');
 
@@ -167,6 +172,19 @@ describe('mountBar', () => {
     delete window.matchMedia;
   });
 
+  it('makes the bar draggable and releases dragging on unmount', () => {
+    mounted.unmount();
+    const dispose = vi.fn();
+    const bindDrag = vi.spyOn(ns, 'bindDrag').mockReturnValue({ dispose });
+    mounted = mount();
+    expect(bindDrag).toHaveBeenCalledWith(
+      expect.objectContaining({ host: mounted.host, win: window, storage, storageEvents }),
+    );
+    mounted.unmount();
+    expect(dispose).toHaveBeenCalledOnce();
+    mounted = null;
+  });
+
   it('is not blocked by a page element that reuses our old id', () => {
     mounted.unmount();
     const decoy = document.createElement('div');
@@ -189,7 +207,8 @@ describe('mountBar', () => {
 
   it('renders the snapshot once the collapsed state is known', async () => {
     let resolveRead;
-    storage.get.mockReturnValueOnce(new Promise((resolve) => (resolveRead = resolve)));
+    const pending = new Promise((resolve) => (resolveRead = resolve));
+    onCollapsedRead(() => pending);
     remount();
     await settle();
     expect(q('.hh-bar')).toBeNull(); // storage not read yet → no flash of wrong state
@@ -247,7 +266,7 @@ describe('mountBar', () => {
   });
 
   it('starts collapsed when storage says so', async () => {
-    storage.get.mockResolvedValueOnce({ [KEY]: true });
+    onCollapsedRead(() => ({ [KEY]: true }));
     remount();
     await settle();
     expect(q('.hh-pill')).not.toBeNull();
@@ -265,7 +284,9 @@ describe('mountBar', () => {
 
   it('still renders if reading storage fails', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    storage.get.mockRejectedValueOnce(new Error('quota'));
+    onCollapsedRead(() => {
+      throw new Error('quota');
+    });
     remount();
     await settle();
     expect(q('.hh-bar')).not.toBeNull();
