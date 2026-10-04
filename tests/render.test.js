@@ -161,6 +161,19 @@ describe('render (focus)', () => {
   });
 });
 
+describe('render (icons)', () => {
+  it.each(['new', 'collapse', 'close'])(
+    'draws the %s button as a decorative SVG icon, named by its aria-label',
+    (action) => {
+      ns.render(mount, { snapshot: grouped, collapsed: false });
+      const button = mount.querySelector(`[data-action="${action}"]`);
+      expect(button.querySelector('svg[aria-hidden="true"] path')).not.toBeNull();
+      expect(button.textContent).toBe('');
+      expect(button.getAttribute('aria-label')).toBeTruthy();
+    },
+  );
+});
+
 describe('render (stability)', () => {
   const favicon = (id) => mount.querySelector(`[data-tab-id="${id}"] img.hh-favicon`);
 
@@ -182,25 +195,52 @@ describe('render (stability)', () => {
 });
 
 describe('styles', () => {
+  const rule = (selector) =>
+    ns.styles.match(
+      new RegExp(`(^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`),
+    )?.[2] ?? '';
+
   it('animates only the bar’s first appearance, not every re-render', () => {
-    expect(ns.styles).not.toMatch(/\.hh-bar\s*\{[^}]*animation/);
+    expect(rule('.hh-bar')).not.toMatch(/animation/);
     expect(ns.styles).toMatch(/:host\s*\{[^}]*animation/);
   });
 
-  it('defines light and dark tokens and a visible focus ring', () => {
-    expect(ns.styles).toContain('--hh-bg: light-dark(#ffffff, #202124)');
-    expect(ns.styles).not.toContain('prefers-color-scheme'); // one token set, no duplicate block
+  it('defines one light-dark() token set and a visible focus ring', () => {
+    expect(ns.styles).toMatch(/--hh-glass:\s*light-dark\(/);
+    expect(ns.styles).not.toContain('prefers-color-scheme');
     expect(ns.styles).toContain(':focus-visible');
   });
 
   it('opts the painted surfaces into light and dark, re-resolving their text colour', () => {
-    // color-scheme belongs on elements with a background; color is re-specified there because
-    // an inherited light-dark() colour would arrive already resolved.
-    for (const surface of ['hh-bar', 'hh-pill']) {
-      const rule = ns.styles.match(new RegExp(`\\.${surface}\\s*\\{([^}]*)\\}`))[1];
-      expect(rule).toMatch(/color-scheme:\s*light dark/);
-      expect(rule).toMatch(/background:\s*var\(--hh-bg\)/);
-      expect(rule).toMatch(/(^|[\s;])color:\s*var\(--hh-fg\)/);
+    for (const surface of ['.hh-bar', '.hh-pill']) {
+      expect(rule(surface)).toMatch(/color-scheme:\s*light dark/);
+      expect(rule(surface)).toMatch(/background:\s*var\(--hh-glass\)/);
+      expect(rule(surface)).toMatch(/(^|[\s;])color:\s*var\(--hh-fg\)/);
     }
+  });
+
+  it('floats as a centred, rounded glass dock above the bottom edge', () => {
+    expect(rule('.hh-root')).toMatch(/justify-content:\s*center/);
+    expect(rule('.hh-root')).toMatch(/padding:[^;]*12px/);
+    expect(rule('.hh-bar')).toMatch(/border-radius:\s*16px/);
+    expect(rule('.hh-bar')).toMatch(/max-width:\s*min\(960px/);
+    expect(rule('.hh-bar')).toMatch(/backdrop-filter:\s*blur\(/);
+  });
+
+  it('falls back to a solid surface without blur support or when transparency is reduced', () => {
+    expect(ns.styles).toMatch(/@supports not \(backdrop-filter: blur\(1px\)\)[\s\S]*?--hh-solid/);
+    expect(ns.styles).toMatch(/prefers-reduced-transparency: reduce[\s\S]*?--hh-solid/);
+  });
+
+  it('uses the group colour as the dock’s identity: edge glow and current-tab indicator', () => {
+    expect(rule('.hh-bar::after')).toMatch(/var\(--hh-group\)/);
+    expect(rule('.hh-bar::after')).toMatch(/box-shadow:[^;]*var\(--hh-group\)/); // a glow, not a hairline
+    expect(ns.styles).toMatch(
+      /\.hh-chip:has\(> \[aria-current='page'\]\)::after\s*\{[^}]*var\(--hh-group\)/,
+    );
+  });
+
+  it('fades the tab strip’s edges with a mask rather than an overlay', () => {
+    expect(rule('.hh-tabs')).toMatch(/mask-image:\s*linear-gradient/);
   });
 });
