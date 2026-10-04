@@ -7,7 +7,7 @@ const noInnerHtml = {
 };
 
 export default [
-  { ignores: ['coverage/', 'dist/', 'node_modules/', '.superpowers/'] },
+  { ignores: ['coverage/', 'dist/', 'node_modules/', '.superpowers/', '.agents/', '.claude/'] },
   js.configs.recommended,
   {
     rules: {
