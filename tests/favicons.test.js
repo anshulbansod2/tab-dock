@@ -7,10 +7,10 @@ let api;
 let fetchFn;
 let favicons;
 
-const response = (ok = true, type = 'image/png') => ({
+const response = (ok = true, type = 'image/png', bytes = PNG) => ({
   ok,
   headers: { get: () => type },
-  arrayBuffer: async () => PNG.buffer,
+  arrayBuffer: async () => bytes.buffer,
 });
 
 const snap = (...tabs) => ({
@@ -39,6 +39,19 @@ describe('createFavicons.inline', () => {
     expect(requested.href).toMatch(/^chrome-extension:\/\/ext-id\/_favicon\/\?/);
     expect(requested.searchParams.get('pageUrl')).toBe('https://a.test/page');
     expect(requested.searchParams.get('size')).toBe('32');
+  });
+
+  it('sniffs the image type when Chrome’s favicon endpoint sends no Content-Type', async () => {
+    // Real Chrome answers _favicon with status 200, image bytes and no Content-Type header.
+    fetchFn.mockResolvedValueOnce(response(true, null));
+    const out = await favicons.inline(snap([1]), tabsFor([1, 'https://a.test/']));
+    expect(out.tabs[0].favIconUrl).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it('rejects untyped bytes that are not a known image format', async () => {
+    fetchFn.mockResolvedValueOnce(response(true, null, new Uint8Array([60, 104, 116, 109])));
+    const out = await favicons.inline(snap([1]), tabsFor([1, 'https://a.test/']));
+    expect(out.tabs[0].favIconUrl).toBeNull();
   });
 
   it('fetches once per origin', async () => {

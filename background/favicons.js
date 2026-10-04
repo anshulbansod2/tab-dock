@@ -26,9 +26,11 @@ export function createFavicons({ api, fetchFn = fetch, max = DEFAULT_CACHE_SIZE 
     url.searchParams.set('size', FAVICON_SIZE);
     try {
       const res = await fetchFn(url.href);
-      const type = res.headers.get('content-type') ?? '';
-      if (!res.ok || !type.startsWith('image/')) return null;
-      return toDataUrl(new Uint8Array(await res.arrayBuffer()), type);
+      if (!res.ok) return null;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      // Chrome's _favicon endpoint sends no Content-Type, so fall back to the file signature.
+      const type = res.headers.get('content-type') || sniffImageType(bytes);
+      return type?.startsWith('image/') ? toDataUrl(bytes, type) : null;
     } catch {
       return null;
     }
@@ -77,6 +79,24 @@ function originOf(pageUrl) {
   } catch {
     return null;
   }
+}
+
+/** File signatures of the formats Chrome stores favicons in. */
+const SIGNATURES = [
+  { type: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47] },
+  { type: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38] },
+  { type: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
+  { type: 'image/x-icon', bytes: [0x00, 0x00, 0x01, 0x00] },
+  { type: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46] },
+];
+
+/**
+ * @param {Uint8Array} bytes
+ * @returns {string | null}
+ */
+function sniffImageType(bytes) {
+  const match = SIGNATURES.find((sig) => sig.bytes.every((b, i) => bytes[i] === b));
+  return match?.type ?? null;
 }
 
 /**
