@@ -52,6 +52,12 @@ function remount() {
   mounted = mount();
 }
 
+/** Resolves after the next animation frame, once pending promise callbacks have run. */
+async function settle() {
+  await flushPromises();
+  await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
 const shadow = () => mounted.host.shadowRoot;
 const q = (sel) => shadow().querySelector(sel);
 
@@ -96,15 +102,29 @@ describe('mountBar', () => {
     let resolveRead;
     storage.get.mockReturnValueOnce(new Promise((resolve) => (resolveRead = resolve)));
     remount();
-    await flushPromises();
+    await settle();
     expect(q('.hh-bar')).toBeNull(); // storage not read yet → no flash of wrong state
     resolveRead({});
-    await flushPromises();
+    await settle();
     expect(q('.hh-bar')).not.toBeNull();
   });
 
+  it('paints on the next animation frame, coalescing a burst into one render', async () => {
+    await settle();
+    const render = vi.spyOn(ns, 'render');
+    const titled = (title) => ({ ...snapshot, tabs: [{ ...snapshot.tabs[0], title }] });
+    push(titled('A'));
+    push(titled('B'));
+    push(titled('C'));
+    expect(render).not.toHaveBeenCalled(); // nothing paints synchronously
+    await settle();
+    expect(render).toHaveBeenCalledOnce();
+    expect(render.mock.calls[0][1].snapshot.tabs[0].title).toBe('C');
+    expect(q('.hh-tab').textContent).toBe('C');
+  });
+
   it('sends actions to the background', async () => {
-    await flushPromises();
+    await settle();
     q('[role="tab"][data-tab-id="2"]').click();
     q('[data-action="close"][data-tab-id="1"]').click();
     q('[data-action="new"]').click();
@@ -115,9 +135,10 @@ describe('mountBar', () => {
     ]);
   });
 
-  it('collapses immediately and persists the choice', async () => {
-    await flushPromises();
+  it('collapses on the next frame and persists the choice', async () => {
+    await settle();
     q('[data-action="collapse"]').click();
+    await settle();
     expect(q('.hh-pill')).not.toBeNull();
     expect(storage.set).toHaveBeenCalledWith({ [KEY]: true });
   });
@@ -125,15 +146,17 @@ describe('mountBar', () => {
   it('starts collapsed when storage says so', async () => {
     storage.get.mockResolvedValueOnce({ [KEY]: true });
     remount();
-    await flushPromises();
+    await settle();
     expect(q('.hh-pill')).not.toBeNull();
   });
 
   it('follows collapsed changes made in other tabs', async () => {
-    await flushPromises();
+    await settle();
     storageEvents.emit({ [KEY]: { newValue: true } }, 'local');
+    await settle();
     expect(q('.hh-pill')).not.toBeNull();
     storageEvents.emit({ [KEY]: { newValue: false } }, 'sync');
+    await settle();
     expect(q('.hh-pill')).not.toBeNull();
   });
 
@@ -141,25 +164,46 @@ describe('mountBar', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     storage.get.mockRejectedValueOnce(new Error('quota'));
     remount();
-    await flushPromises();
+    await settle();
     expect(q('.hh-bar')).not.toBeNull();
   });
 
   it('frees its DOM and snapshot while the page is hidden, repainting when shown', async () => {
-    await flushPromises();
+    await settle();
     setVisibility('hidden');
     expect(q('.hh-root')).toBeNull();
     storageEvents.emit({ [KEY]: { newValue: false } }, 'local'); // must not repaint stale data
+    await settle();
     expect(q('.hh-root')).toBeNull();
     setVisibility('visible');
-    await flushPromises(); // shown again → asks for a fresh snapshot
+    await settle(); // shown again → asks for a fresh snapshot
     expect(q('.hh-bar')).not.toBeNull();
     push();
+    await settle();
     expect(q('.hh-bar')).not.toBeNull();
   });
 
+  it('drops a pending frame when the page is hidden', async () => {
+    await settle();
+    const render = vi.spyOn(ns, 'render');
+    push();
+    setVisibility('hidden');
+    await settle();
+    expect(render).not.toHaveBeenCalled();
+    expect(q('.hh-root')).toBeNull();
+  });
+
+  it('drops a pending frame on unmount', async () => {
+    await settle();
+    const render = vi.spyOn(ns, 'render');
+    push();
+    mounted.unmount();
+    await settle();
+    expect(render).not.toHaveBeenCalled();
+  });
+
   it('removes itself when the extension is reloaded', async () => {
-    await flushPromises();
+    await settle();
     runtime.sendMessage.mockRejectedValue(new Error('Extension context invalidated.'));
     q('[data-action="new"]').click();
     await flushPromises();

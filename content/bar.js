@@ -21,6 +21,7 @@
       if (doc.visibilityState !== 'visible') view.release();
     };
     const unmount = () => {
+      view.dispose();
       connection.stop();
       doc.removeEventListener('visibilitychange', onVisibility);
       host.remove();
@@ -47,33 +48,53 @@
 
   /**
    * Holds the latest snapshot and collapsed flag; paints only once both are known so the bar
-   * never flashes in the wrong state.
+   * never flashes in the wrong state. Paints are coalesced into the next animation frame, so a
+   * burst of snapshots or collapse changes costs one render with the latest data.
    * @param {HTMLElement} mount
+   * @param {(callback: FrameRequestCallback) => number} [requestFrame]
+   * @param {(handle: number) => void} [cancelFrame]
    */
-  function createView(mount) {
+  function createView(
+    mount,
+    requestFrame = requestAnimationFrame,
+    cancelFrame = cancelAnimationFrame,
+  ) {
     /** @type {Snapshot | null} */
     let snapshot = null;
     /** @type {boolean | null} */
     let collapsed = null;
+    /** @type {number | null} */
+    let frame = null;
     const paint = () => {
+      frame = null;
       if (snapshot && collapsed !== null) ns.render(mount, { snapshot, collapsed });
+    };
+    const schedule = () => {
+      frame ??= requestFrame(paint);
+    };
+    const cancel = () => {
+      if (frame !== null) cancelFrame(frame);
+      frame = null;
     };
     return {
       /** @param {Snapshot} next */
       setSnapshot(next) {
         snapshot = next;
-        paint();
+        schedule();
       },
       /** @param {boolean} next */
       setCollapsed(next) {
         collapsed = next;
-        paint();
+        schedule();
       },
       isCollapsed: () => collapsed === true,
+      /** Drops data and any pending paint so a hidden page never shows a stale frame. */
       release() {
+        cancel();
         snapshot = null;
         mount.replaceChildren();
       },
+      dispose: cancel,
     };
   }
 
