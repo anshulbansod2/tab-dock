@@ -1,5 +1,5 @@
 // @ts-check
-// Lets the user drag the dock anywhere by its group name (Alt+arrows from the keyboard). The
+// Lets the user drag the dock anywhere by its group name (or the collapsed pill) (Alt+arrows from the keyboard). The
 // spot is stored as viewport fractions, shared by every site, and dropping the dock near its
 // default bottom-centre spot snaps it home.
 (() => {
@@ -8,6 +8,8 @@
   const DRAG_THRESHOLD_PX = 4;
   const KEY_STEP_PX = 16;
   const SNAP_HOME_PX = 32;
+  /** What the user grabs: the group name, or the whole pill when collapsed. */
+  const HANDLE = '.hh-label, .hh-pill';
   /** Gap between the default dock and the bottom edge; matches .hh-root's padding. */
   const HOME_GAP_PX = 12;
   /** @type {Readonly<Record<string, [number, number]>>} */
@@ -47,7 +49,7 @@
     const pointer = createPointerDrag(mount, pos);
     /** @param {KeyboardEvent} event */
     const onKeyDown = (event) => {
-      if (!event.altKey || !(event.target instanceof Element) || !event.target.closest('.hh-label'))
+      if (!event.altKey || !(event.target instanceof Element) || !event.target.closest(HANDLE))
         return;
       if (event.key === 'Home') pos.save(null);
       else if (event.key in ARROWS) {
@@ -165,7 +167,7 @@
   }
 
   /**
-   * Pointer dragging on the group name. A press that moves less than the threshold stays a
+   * Pointer dragging on the group name or pill. A press that moves less than the threshold stays a
    * click (collapse); a real drag swallows the click that follows its pointerup.
    * @param {HTMLElement} mount
    * @param {ReturnType<typeof createPositioner>} pos
@@ -178,12 +180,12 @@
     /** @param {PointerEvent} event */
     function onDown(event) {
       swallowClick = false;
-      const onLabel = event.target instanceof Element && event.target.closest('.hh-label');
-      if (!onLabel || event.button !== 0) return;
+      const handle = event.target instanceof Element && event.target.closest(HANDLE);
+      if (!handle || event.button !== 0) return;
       const box = pos.dockBox();
       drag = { x: event.clientX, y: event.clientY, left: box.left, top: box.top, moved: false };
-      // Capture now: the first real move usually lands off the small label, on the page.
-      if (event.pointerId !== undefined) onLabel.setPointerCapture?.(event.pointerId);
+      // Capture now: the first real move usually lands off the small handle, on the page.
+      if (event.pointerId !== undefined) handle.setPointerCapture?.(event.pointerId);
     }
 
     /** @param {PointerEvent} event */

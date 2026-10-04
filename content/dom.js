@@ -149,6 +149,7 @@
     const count = snapshot.tabs.length;
     const pill = el('button', 'hh-pill');
     pill.type = 'button';
+    pill.title = 'Click to expand, drag to move';
     pill.dataset.action = 'expand';
     pill.setAttribute('aria-expanded', 'false');
     pill.setAttribute(

@@ -158,6 +158,27 @@ describe('dragging the group name', () => {
     expect(placed()).toMatchObject({ left: '182px', top: '382px', marked: true });
   });
 
+  it('drags the collapsed pill too, without expanding it', () => {
+    ns.render(mount, { snapshot, collapsed: true });
+    dockAt(312, 712);
+    const pill = () => mount.querySelector('.hh-pill');
+    pointer('pointerdown', 330, 730, pill());
+    pointer('pointermove', 200, 400, pill());
+    pointer('pointerup', 200, 400, pill());
+    pill().click();
+    expect(placed()).toMatchObject({ left: '182px', top: '382px', marked: true });
+    expect(clicks).not.toHaveBeenCalled();
+  });
+
+  it('moves the collapsed pill with Alt+arrows', () => {
+    ns.render(mount, { snapshot, collapsed: true });
+    dockAt(312, 712);
+    mount
+      .querySelector('.hh-pill')
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, bubbles: true }));
+    expect(placed()).toMatchObject({ top: '696px', marked: true });
+  });
+
   it('ignores secondary buttons and pointers outside the group name', () => {
     label().dispatchEvent(
       new MouseEvent('pointerdown', { clientX: 330, clientY: 730, button: 2, bubbles: true }),

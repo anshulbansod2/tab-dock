@@ -49,7 +49,7 @@
   border-radius: 10px; cursor: grab; font-weight: 600; white-space: nowrap;
   touch-action: none; transition: background-color 120ms;
 }
-.hh-label:active { cursor: grabbing; }
+.hh-label:active, .hh-pill:active { cursor: grabbing; }
 .hh-label:hover { background: var(--hh-chip-hover); }
 .hh-label-text { overflow: hidden; text-overflow: ellipsis; }
 .hh-label + .hh-tabs { border-left: 1px solid var(--hh-edge); }
@@ -113,7 +113,7 @@
 .hh-pill {
   all: unset; color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
   pointer-events: auto; box-sizing: border-box; display: flex; align-items: center; gap: 8px;
-  height: 32px; padding: 0 14px 0 12px; border-radius: 999px; cursor: pointer;
+  height: 32px; padding: 0 14px 0 12px; border-radius: 999px; cursor: grab; touch-action: none;
   border: 1px solid var(--hh-edge); backdrop-filter: blur(20px) saturate(1.8);
   box-shadow: inset 0 1px 0 var(--hh-highlight), 0 8px 24px -10px rgb(0 0 0 / 0.35);
   font-weight: 600; font-variant-numeric: tabular-nums;
