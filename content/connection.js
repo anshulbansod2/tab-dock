@@ -1,7 +1,7 @@
 // @ts-check
 // Messaging with the background. No connection is held open, so the service worker can sleep:
-// a bar asks for a snapshot when its page becomes visible, and the background pushes updates
-// to whichever tab is visible.
+// a bar asks for a snapshot when it loads and whenever its page is shown, and the background
+// pushes updates to every bar, hidden ones included, so a tab switch shows a current bar.
 (() => {
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
   const { MSG } = ns.constants;
@@ -38,9 +38,9 @@
     }
 
     async function requestSnapshot() {
-      if (!running || !isVisible()) return;
+      if (!running) return;
       const reply = await call({ type: MSG.HELLO });
-      if (running && isVisible() && isSnapshot(reply)) onSnapshot(reply);
+      if (running && isSnapshot(reply)) onSnapshot(reply);
     }
 
     /**
@@ -48,13 +48,14 @@
      * @param {chrome.runtime.MessageSender} sender
      */
     function onPush(raw, sender) {
-      if (sender.id !== runtime.id || !isVisible()) return;
+      if (sender.id !== runtime.id) return;
       const msg = /** @type {Partial<ServerMessage> | null} */ (raw);
       if (msg?.type === MSG.SNAPSHOT && isSnapshot(msg.snapshot)) onSnapshot(msg.snapshot);
     }
 
+    /** Catches up on anything missed while the service worker was asleep. */
     function onVisibility() {
-      void requestSnapshot();
+      if (isVisible()) void requestSnapshot();
     }
 
     function orphan() {

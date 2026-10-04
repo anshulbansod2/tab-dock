@@ -73,7 +73,7 @@ describe('registerBackground', () => {
     expect(api.tabs.sendMessage).not.toHaveBeenCalled();
     api.tabs.onUpdated.emit(1, { title: 'New' }, makeTab({ id: 1 }));
     await settle();
-    expect(api.tabs.sendMessage).toHaveBeenCalledOnce();
+    expect(api.tabs.sendMessage).toHaveBeenCalledTimes(2); // both bars in the window
   });
 
   it.each([
@@ -88,10 +88,10 @@ describe('registerBackground', () => {
     ['group onUpdated', () => api.tabGroups.onUpdated.emit({ id: 10, windowId: 1 })],
     ['group onRemoved', () => api.tabGroups.onRemoved.emit({ id: 10, windowId: 1 })],
     ['group onMoved', () => api.tabGroups.onMoved.emit({ id: 10, windowId: 1 })],
-  ])('refreshes the visible bar on %s', async (_name, fire) => {
+  ])("refreshes the window's bars on %s", async (_name, fire) => {
     fire();
     await flushPromises();
     await settle();
-    expect(api.tabs.sendMessage).toHaveBeenCalledOnce();
+    expect(api.tabs.sendMessage).toHaveBeenCalledTimes(2);
   });
 });

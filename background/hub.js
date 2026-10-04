@@ -1,5 +1,5 @@
 // @ts-check
-import { BROADCAST_DEBOUNCE_MS, INJECTABLE_URL, MSG } from './constants.js';
+import { BROADCAST_DEBOUNCE_MS, INJECTABLE_URL, MSG, UNGROUPED_ID } from './constants.js';
 import { createFavicons } from './favicons.js';
 import { logger } from './logger.js';
 import { buildSnapshot } from './tabModel.js';
@@ -7,10 +7,9 @@ import { buildSnapshot } from './tabModel.js';
 /** @typedef {ReturnType<typeof createHub>} Hub */
 
 /**
- * Keeps visible bars current without holding any connection open, so the service worker can
- * sleep between events. Only a window's active tab is visible, so only it receives pushes;
- * other tabs ask for a snapshot when they are shown. Bursts of events within `debounceMs`
- * collapse into one push per window.
+ * Keeps every bar current without holding any connection open, so the service worker can
+ * sleep between events. Bursts of events within `debounceMs` collapse into one push per
+ * window.
  *
  * @param {object} deps
  * @param {typeof chrome} deps.api
@@ -47,20 +46,37 @@ export function createHub({
     return favicons.inline(buildSnapshot({ tabs, groups, tabId: client.tabId }), tabs);
   }
 
-  /** @param {number} windowId */
-  async function pushToVisible(windowId) {
+  /**
+   * Pushes to every bar in the window, not just the visible one, so switching tabs shows a bar
+   * that is already current instead of one that catches up a round trip later. Hidden pages
+   * paint on their next animation frame, which Chrome holds until they are shown, so this costs
+   * one message per tab and no rendering. Favicons are inlined once per group.
+   * @param {number} windowId
+   */
+  async function pushToWindow(windowId) {
     const { tabs, groups } = await windowState(windowId);
-    const visible = tabs.filter((tab) => tab.active && tab.id !== undefined);
+    /** @type {Map<number, Promise<Snapshot>>} */
+    const perGroup = new Map();
+    const reachable = tabs.filter(
+      (tab) => tab.id !== undefined && !tab.discarded && INJECTABLE_URL.test(tab.url ?? ''),
+    );
     await Promise.all(
-      visible.map(async (tab) => {
+      reachable.map(async (tab) => {
         const tabId = /** @type {number} */ (tab.id);
-        const snapshot = await favicons.inline(buildSnapshot({ tabs, groups, tabId }), tabs);
+        const built = buildSnapshot({ tabs, groups, tabId });
+        const key = built.group?.id ?? UNGROUPED_ID;
+        if (!perGroup.has(key)) perGroup.set(key, favicons.inline(built, tabs));
+        const shared = /** @type {Snapshot} */ (await perGroup.get(key));
+        const snapshot = {
+          ...shared,
+          tabs: shared.tabs.map((t) => ({ ...t, active: t.id === tabId })),
+        };
         /** @type {ServerMessage} */
         const message = { type: MSG.SNAPSHOT, snapshot };
         try {
           await api.tabs.sendMessage(tabId, message, { frameId: 0 });
         } catch {
-          await injectBar(tab); // no bar is listening in this tab yet
+          if (tab.active) await injectBar(tab); // no bar is listening in the visible tab yet
         }
       }),
     );
@@ -90,7 +106,7 @@ export function createHub({
     const flush = async () => {
       timers.delete(windowId);
       try {
-        await pushToVisible(windowId);
+        await pushToWindow(windowId);
       } catch (err) {
         logger.error('push failed', err);
       }

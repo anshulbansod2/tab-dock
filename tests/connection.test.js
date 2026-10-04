@@ -43,14 +43,14 @@ describe('createConnection', () => {
     expect(onSnapshot).toHaveBeenCalledWith(snapshot);
   });
 
-  it('holds no listener-driven work while hidden, and asks again when shown', async () => {
-    doc.visibilityState = 'hidden';
+  it('fetches a snapshot even when loaded in the background, and again when shown', async () => {
+    doc.visibilityState = 'hidden'; // e.g. a link opened in a new background tab
     conn.start();
     await flushPromises();
-    expect(runtime.sendMessage).not.toHaveBeenCalled();
+    expect(onSnapshot).toHaveBeenCalledOnce();
     setVisibility('visible');
     await flushPromises();
-    expect(onSnapshot).toHaveBeenCalledOnce();
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it('ignores a hello reply that is not a snapshot', async () => {
@@ -60,7 +60,7 @@ describe('createConnection', () => {
     expect(onSnapshot).not.toHaveBeenCalled();
   });
 
-  it('applies pushes from its own extension while visible only', async () => {
+  it('applies pushes from its own extension, even while hidden', async () => {
     conn.start();
     await flushPromises();
     onSnapshot.mockClear();
@@ -69,7 +69,7 @@ describe('createConnection', () => {
     runtime.onMessage.emit({ type: 'other' }, OWN);
     doc.visibilityState = 'hidden';
     runtime.onMessage.emit({ type: 'snapshot', snapshot }, OWN);
-    expect(onSnapshot).toHaveBeenCalledOnce();
+    expect(onSnapshot).toHaveBeenCalledTimes(2);
   });
 
   it('sends actions', async () => {

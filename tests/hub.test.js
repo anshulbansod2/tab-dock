@@ -44,14 +44,43 @@ describe('createHub', () => {
     ]);
   });
 
-  it('pushes only to the visible (active) tab, once per burst', async () => {
+  it('keeps every bar in the window current, once per burst', async () => {
     for (let i = 0; i < 4; i += 1) hub.schedule(1);
     await settle();
     expect(api.tabs.query).toHaveBeenCalledTimes(1);
-    expect(api.tabs.sendMessage).toHaveBeenCalledOnce();
-    const [tabId, message, options] = api.tabs.sendMessage.mock.calls[0];
-    expect([tabId, message.type, options]).toEqual([1, 'snapshot', { frameId: 0 }]);
-    expect(message.snapshot.tabs.map((t) => t.id)).toEqual([1, 2]);
+    expect(pushedTo()).toEqual([1, 2]); // hidden tab 2 is ready before the user switches to it
+    for (const [tabId, message, options] of api.tabs.sendMessage.mock.calls) {
+      expect([message.type, options]).toEqual(['snapshot', { frameId: 0 }]);
+      expect(message.snapshot.tabs.map((t) => [t.id, t.active])).toEqual([
+        [1, tabId === 1],
+        [2, tabId === 2],
+      ]);
+    }
+  });
+
+  it('inlines favicons once per group, however many tabs it has', async () => {
+    hub.schedule(1);
+    await settle();
+    expect(favicons.inline).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['discarded', { discarded: true }],
+    ['a chrome:// page', { url: 'chrome://settings/' }],
+  ])('skips a hidden tab that is %s', async (_name, extra) => {
+    Object.assign(api.state.tabs[1], extra);
+    hub.schedule(1);
+    await settle();
+    expect(pushedTo()).toEqual([1]);
+  });
+
+  it('injects a missing bar only into the visible tab', async () => {
+    api.tabs.sendMessage.mockRejectedValue(new Error('Receiving end does not exist.'));
+    api.state.tabs[1].status = 'complete';
+    hub.schedule(1);
+    await settle();
+    expect(api.scripting.executeScript).toHaveBeenCalledOnce();
+    expect(api.scripting.executeScript.mock.calls[0][0].target.tabId).toBe(1);
   });
 
   it('only pushes to the scheduled window', async () => {
@@ -64,7 +93,7 @@ describe('createHub', () => {
     hub.scheduleAll();
     await flushPromises();
     await settle();
-    expect(pushedTo().sort()).toEqual([1, 3]);
+    expect(pushedTo().sort()).toEqual([1, 2, 3]);
   });
 
   it('inlines favicons in both replies and pushes', async () => {
@@ -72,6 +101,7 @@ describe('createHub', () => {
     hub.schedule(1);
     await settle();
     expect(api.tabs.sendMessage.mock.calls[0][1].snapshot.inlined).toBe(true);
+    expect(api.tabs.sendMessage.mock.calls[1][1].snapshot.inlined).toBe(true);
     expect(favicons.inline.mock.calls[0][1].map((t) => t.id)).toEqual([1, 2]);
   });
 

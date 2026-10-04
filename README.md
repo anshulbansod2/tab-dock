@@ -28,9 +28,9 @@ listens in the capture phase on `window` can still see them; that is a browser l
 
 ### Memory and speed
 
-- No connection is held open: the service worker sleeps between tab events, and only each
-  window's visible tab receives updates.
-- Hidden tabs drop the bar's DOM and data until they are shown again.
+- No connection is held open: the service worker sleeps between tab events.
+- Every bar in the window is kept current, so switching tabs shows the right bar at once.
+  Hidden tabs only store the update; Chrome holds their repaint until they are shown.
 - Favicons come from Chrome's own cache as small inline images, cached per site (bounded),
   so pages never fetch — or learn about — other tabs' sites.
 
