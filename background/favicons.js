@@ -14,6 +14,8 @@ const CHUNK = 0x8000;
  * @param {{ api: typeof chrome, fetchFn?: typeof fetch, max?: number }} deps
  */
 export function createFavicons({ api, fetchFn = fetch, max = DEFAULT_CACHE_SIZE }) {
+  // In-memory on purpose: entries are disposable and rebuilt on demand from Chrome's favicon
+  // cache, so losing them when the worker stops costs only a re-fetch, never correctness.
   /** @type {Map<string, Promise<string | null>>} */
   const cache = new Map();
 

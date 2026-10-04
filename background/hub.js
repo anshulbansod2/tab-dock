@@ -22,6 +22,9 @@ export function createHub({
   favicons = createFavicons({ api }),
   debounceMs = BROADCAST_DEBOUNCE_MS,
 }) {
+  // In-memory on purpose: chrome.alarms can't fire sooner than 30 s, too coarse to debounce.
+  // Losing a pending timer when the worker stops only drops one push; the next tab event or
+  // a bar's hello rebuilds the snapshot from Chrome's live state.
   /** @type {Map<number, ReturnType<typeof setTimeout>>} */
   const timers = new Map();
 
