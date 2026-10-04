@@ -1,5 +1,5 @@
 // @ts-check
-import { INJECTABLE_URL } from './constants.js';
+import { WEB_URL } from './constants.js';
 
 const FAVICON_SIZE = '32';
 const DEFAULT_CACHE_SIZE = 200;
@@ -73,7 +73,7 @@ export function createFavicons({ api, fetchFn = fetch, max = DEFAULT_CACHE_SIZE 
  * @returns {string | null}
  */
 function originOf(pageUrl) {
-  if (!pageUrl || !INJECTABLE_URL.test(pageUrl)) return null;
+  if (!pageUrl || !WEB_URL.test(pageUrl)) return null;
   try {
     return new URL(pageUrl).origin;
   } catch {

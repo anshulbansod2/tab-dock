@@ -99,6 +99,14 @@ describe('createHub', () => {
     });
   });
 
+  it('injects into local file pages too (works once the user allows file access)', async () => {
+    api.state.tabs[0].url = 'file:///Users/me/notes.html';
+    api.tabs.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist.'));
+    hub.schedule(1);
+    await settle();
+    expect(api.scripting.executeScript).toHaveBeenCalledOnce();
+  });
+
   it.each([
     ['still loading', { status: 'loading' }],
     ['a chrome:// page', { url: 'chrome://settings/' }],

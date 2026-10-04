@@ -16,5 +16,10 @@ export const DEFAULT_GROUP_COLOR = 'grey';
 export const UNTITLED_TAB = 'Untitled';
 export const BROADCAST_DEBOUNCE_MS = 50;
 
-/** Only these pages can host the bar (Chrome blocks chrome://, the Web Store, etc.). */
-export const INJECTABLE_URL = /^https?:/;
+/**
+ * Pages that can host the bar. Chrome blocks chrome://, the Web Store, etc.; file:// pages
+ * work once the user enables "Allow access to file URLs" (injection fails quietly otherwise).
+ */
+export const INJECTABLE_URL = /^(https?|file):/;
+/** Pages with a web origin, whose favicons Chrome caches per site. */
+export const WEB_URL = /^https?:/;
