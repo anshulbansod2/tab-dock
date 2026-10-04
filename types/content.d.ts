@@ -1,12 +1,16 @@
 // Ambient types for the classic content scripts, which share one global namespace.
 
 interface ContentConstants {
-  PORT_NAME: string;
-  MSG: Readonly<{ SNAPSHOT: 'snapshot'; ACTIVATE: 'activate'; CLOSE: 'close'; NEW: 'new' }>;
-  HOST_ID: string;
+  MSG: Readonly<{
+    HELLO: 'hello';
+    SNAPSHOT: 'snapshot';
+    ACTIVATE: 'activate';
+    CLOSE: 'close';
+    NEW: 'new';
+  }>;
+  HOST_TAG: string;
   STORAGE_KEY: string;
   TITLE_MAX_CHARS: number;
-  RECONNECT_DELAYS_MS: readonly number[];
   UNGROUPED_LABEL: string;
   NEUTRAL_COLOR: string;
   GROUP_COLORS: Readonly<Record<string, string>>;
@@ -50,8 +54,15 @@ interface MountOptions {
   shadowMode: ShadowRootMode;
 }
 
+interface MountedBar {
+  host: HTMLElement;
+  connection: Connection;
+  unmount(): void;
+}
+
 interface HoverHelperNamespace {
   constants: ContentConstants;
+  instance: string;
   logger: Logger;
   styles: string;
   truncate(text: string, max: number): string;
@@ -62,7 +73,7 @@ interface HoverHelperNamespace {
   render(mount: HTMLElement, view: BarView): void;
   bindEvents(mount: HTMLElement, handlers: BarHandlers): void;
   createConnection(options: ConnectionOptions): Connection;
-  mountBar(options: MountOptions): { host: HTMLElement; connection: Connection } | null;
+  mountBar(options: MountOptions): MountedBar | null;
 }
 
 declare var HoverHelper: HoverHelperNamespace;

@@ -20,8 +20,9 @@ describe('truncate', () => {
 
 describe('safeFavicon', () => {
   it.each([
-    ['https://a.com/f.ico', 'https://a.com/f.ico'],
-    ['http://a.com/f.ico', 'http://a.com/f.ico'],
+    // Remote URLs would leak other tabs' sites to the page (resource timing, CSP reports).
+    ['https://a.com/f.ico', null],
+    ['http://a.com/f.ico', null],
     ['data:image/png;base64,AAAA', 'data:image/png;base64,AAAA'],
     ['javascript:alert(1)', null],
     ['data:text/html,<script>', null],

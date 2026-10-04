@@ -11,21 +11,14 @@ export function createEvent() {
   };
 }
 
-export function createPort({
-  name = 'hover-helper',
+/** A runtime.MessageSender as Chrome reports it for our top-frame content script. */
+export function createSender({
   tabId = 1,
   windowId = 1,
   extensionId = 'ext-id',
   frameId = 0,
 } = {}) {
-  return {
-    name,
-    sender: { id: extensionId, frameId, tab: { id: tabId, windowId } },
-    postMessage: vi.fn(),
-    disconnect: vi.fn(),
-    onMessage: createEvent(),
-    onDisconnect: createEvent(),
-  };
+  return { id: extensionId, frameId, tab: { id: tabId, windowId } };
 }
 
 export function makeTab(overrides = {}) {
@@ -54,7 +47,14 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
   };
   return {
     state,
-    runtime: { id: 'ext-id', onConnect: createEvent() },
+    runtime: {
+      id: 'ext-id',
+      onMessage: createEvent(),
+      onInstalled: createEvent(),
+      getURL: (path) => `chrome-extension://ext-id${path}`,
+      getManifest: () => ({ content_scripts: [{ js: ['content/core.js', 'content/main.js'] }] }),
+    },
+    scripting: { executeScript: vi.fn(async () => []) },
     tabs: {
       query: vi.fn(async ({ windowId }) => state.tabs.filter((t) => t.windowId === windowId)),
       get: vi.fn(get),
@@ -62,6 +62,7 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       remove: vi.fn(async () => undefined),
       create: vi.fn(async (props) => ({ id: 999, ...props })),
       group: vi.fn(async () => 1),
+      sendMessage: vi.fn(async () => undefined),
       onCreated: createEvent(),
       onRemoved: createEvent(),
       onUpdated: createEvent(),
@@ -69,6 +70,7 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       onAttached: createEvent(),
       onDetached: createEvent(),
       onReplaced: createEvent(),
+      onActivated: createEvent(),
     },
     tabGroups: {
       query: vi.fn(async ({ windowId }) => state.groups.filter((g) => g.windowId === windowId)),

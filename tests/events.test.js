@@ -114,12 +114,14 @@ describe('keyboard', () => {
     expect(shadow.activeElement).toBe(tab(3));
   });
 
-  it('keeps keystrokes inside the bar away from page shortcuts', () => {
-    const pageListener = vi.fn();
-    document.addEventListener('keydown', pageListener);
-    key(tab(1), ' ');
-    key(tab(1), 'j');
-    document.removeEventListener('keydown', pageListener);
-    expect(pageListener).not.toHaveBeenCalled();
-  });
+  it.each(['keydown', 'keyup', 'keypress'])(
+    'keeps %s inside the bar away from page shortcuts',
+    (type) => {
+      const pageListener = vi.fn();
+      document.addEventListener(type, pageListener);
+      tab(1).dispatchEvent(new KeyboardEvent(type, { key: 'j', bubbles: true, composed: true }));
+      document.removeEventListener(type, pageListener);
+      expect(pageListener).not.toHaveBeenCalled();
+    },
+  );
 });

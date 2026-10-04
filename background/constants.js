@@ -1,9 +1,8 @@
 // @ts-check
 
-/** Port name; must equal content/core.js PORT_NAME (enforced by tests/contract.test.js). */
-export const PORT_NAME = 'hover-helper';
-
+/** Message types; must equal content/core.js MSG (enforced by tests/contract.test.js). */
 export const MSG = Object.freeze({
+  HELLO: 'hello',
   SNAPSHOT: 'snapshot',
   ACTIVATE: 'activate',
   CLOSE: 'close',
@@ -16,3 +15,6 @@ export const DEFAULT_GROUP_TITLE = 'Group';
 export const DEFAULT_GROUP_COLOR = 'grey';
 export const UNTITLED_TAB = 'Untitled';
 export const BROADCAST_DEBOUNCE_MS = 50;
+
+/** Only these pages can host the bar (Chrome blocks chrome://, the Web Store, etc.). */
+export const INJECTABLE_URL = /^https?:/;

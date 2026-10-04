@@ -2,12 +2,14 @@
 // Mounts the bar into the page and connects state, rendering, events and the port.
 (() => {
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
-  const { HOST_ID, STORAGE_KEY, MSG } = ns.constants;
+  const { HOST_TAG, STORAGE_KEY, MSG } = ns.constants;
 
   ns.mountBar = ({ doc, runtime, storage, storageEvents, shadowMode }) => {
-    if (doc.getElementById(HOST_ID)) return null; // already injected into this document
-    const host = doc.createElement('div');
-    host.id = HOST_ID;
+    const existing = /** @type {HTMLElement[]} */ ([...doc.getElementsByTagName(HOST_TAG)]);
+    if (existing.some((el) => el.dataset.instance === ns.instance)) return null; // already mounted
+    existing.forEach((el) => el.remove()); // left behind by a reloaded extension instance
+    const host = doc.createElement(HOST_TAG);
+    host.dataset.instance = ns.instance;
     const shadow = host.attachShadow({ mode: shadowMode });
     applyStyles(shadow, doc);
     const mount = doc.createElement('div');
@@ -18,14 +20,16 @@
     const onVisibility = () => {
       if (doc.visibilityState !== 'visible') view.release();
     };
+    const unmount = () => {
+      connection.stop();
+      doc.removeEventListener('visibilitychange', onVisibility);
+      host.remove();
+    };
     const connection = ns.createConnection({
       runtime,
       doc,
       onSnapshot: view.setSnapshot,
-      onOrphaned: () => {
-        doc.removeEventListener('visibilitychange', onVisibility);
-        host.remove();
-      },
+      onOrphaned: unmount,
     });
     ns.bindEvents(mount, {
       onActivate: (tabId) => connection.send({ type: MSG.ACTIVATE, tabId }),
@@ -38,7 +42,7 @@
     doc.addEventListener('visibilitychange', onVisibility);
     doc.documentElement.append(host);
     connection.start();
-    return { host, connection };
+    return { host, connection, unmount };
   };
 
   /**

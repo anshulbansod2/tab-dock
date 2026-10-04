@@ -3,7 +3,7 @@
 (() => {
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
   const { GROUP_COLORS, NEUTRAL_COLOR, UNGROUPED_LABEL } = ns.constants;
-  const SAFE_FAVICON = /^(https?:|data:image\/)/i;
+  const SAFE_FAVICON = /^data:image\//i;
   const ELLIPSIS = '…';
 
   /** Shortens by code points (not UTF-16 units) so emoji are never split. */
@@ -18,7 +18,7 @@
     );
   };
 
-  /** Only web and inline-image URLs may reach an <img src>. */
+  /** Only inline images (inlined by the background) may reach an <img src>: no network fetch. */
   ns.safeFavicon = (url) => (url && SAFE_FAVICON.test(url) ? url : null);
 
   ns.groupLabel = (group) => (group ? group.title : UNGROUPED_LABEL);

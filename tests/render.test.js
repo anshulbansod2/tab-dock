@@ -22,7 +22,7 @@ beforeEach(() => {
 const tab = (id, extra = {}) => ({
   id,
   title: `Tab ${id}`,
-  favIconUrl: `https://site${id}.test/favicon.ico`,
+  favIconUrl: `data:image/png;base64,AAA${id}`,
   active: false,
   ...extra,
 });

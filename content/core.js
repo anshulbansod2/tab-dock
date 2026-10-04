@@ -4,18 +4,18 @@
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
 
   ns.constants = Object.freeze({
-    /** Must equal background/constants.js PORT_NAME (tests/contract.test.js). */
-    PORT_NAME: 'hover-helper',
+    /** Must equal background/constants.js MSG (tests/contract.test.js). */
     MSG: Object.freeze({
+      HELLO: /** @type {const} */ ('hello'),
       SNAPSHOT: /** @type {const} */ ('snapshot'),
       ACTIVATE: /** @type {const} */ ('activate'),
       CLOSE: /** @type {const} */ ('close'),
       NEW: /** @type {const} */ ('new'),
     }),
-    HOST_ID: 'hover-helper-root',
+    /** Custom tag (not an id) so page markup can't collide with or block the bar. */
+    HOST_TAG: 'hover-helper-bar',
     STORAGE_KEY: 'hoverHelper.collapsed',
     TITLE_MAX_CHARS: 24,
-    RECONNECT_DELAYS_MS: Object.freeze([100, 1000, 5000]),
     UNGROUPED_LABEL: 'Ungrouped',
     NEUTRAL_COLOR: '#80868b',
     /** chrome.tabGroups.Color → the swatch Chrome draws for it. */
@@ -31,6 +31,9 @@
       orange: '#fa903e',
     }),
   });
+
+  /** Identifies this injection; bars from an earlier (reloaded) extension instance differ. */
+  ns.instance ??= `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
   const PREFIX = '[hover-helper]';
   ns.logger = Object.freeze({

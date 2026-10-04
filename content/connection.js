@@ -1,63 +1,65 @@
 // @ts-check
-// Port lifecycle. A bar holds a port only while its page is visible, so the service worker
-// serves just the bars a user can see; every (re)connect yields a fresh snapshot.
+// Messaging with the background. No connection is held open, so the service worker can sleep:
+// a bar asks for a snapshot when its page becomes visible, and the background pushes updates
+// to whichever tab is visible.
 (() => {
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
-  const { PORT_NAME, MSG, RECONNECT_DELAYS_MS } = ns.constants;
+  const { MSG } = ns.constants;
+  const CONTEXT_GONE = /Extension context invalidated/i;
+
+  /**
+   * @param {unknown} value
+   * @returns {value is Snapshot}
+   */
+  const isSnapshot = (value) =>
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray(/** @type {Snapshot} */ (value).tabs);
 
   ns.createConnection = ({ onSnapshot, onOrphaned, runtime, doc }) => {
-    /** @type {chrome.runtime.Port | null} */
-    let port = null;
-    /** @type {ReturnType<typeof setTimeout> | undefined} */
-    let timer;
-    let attempt = 0;
     let running = false;
+    let orphaned = false;
+    const isVisible = () => doc.visibilityState === 'visible';
 
-    function connect() {
-      if (!running || port || doc.visibilityState !== 'visible') return;
-      // runtime.id disappears once the extension is reloaded or removed.
-      if (!runtime.id) {
-        orphan();
-        return;
-      }
+    /**
+     * @param {ClientMessage} msg
+     * @returns {Promise<unknown>}
+     */
+    async function call(msg) {
       try {
-        port = runtime.connect({ name: PORT_NAME });
-      } catch {
-        orphan();
-        return;
+        // runtime.id disappears once the extension is reloaded or removed.
+        if (!runtime.id) throw new Error('Extension context invalidated.');
+        return await runtime.sendMessage(msg);
+      } catch (err) {
+        if (!runtime.id || (err instanceof Error && CONTEXT_GONE.test(err.message))) orphan();
+        else ns.logger.warn(`${msg.type} failed`, err);
+        return null;
       }
-      port.onMessage.addListener(onMessage);
-      port.onDisconnect.addListener(onDisconnect);
     }
 
-    /** @param {unknown} raw */
-    function onMessage(raw) {
-      attempt = 0;
+    async function requestSnapshot() {
+      if (!running || !isVisible()) return;
+      const reply = await call({ type: MSG.HELLO });
+      if (running && isVisible() && isSnapshot(reply)) onSnapshot(reply);
+    }
+
+    /**
+     * @param {unknown} raw
+     * @param {chrome.runtime.MessageSender} sender
+     */
+    function onPush(raw, sender) {
+      if (sender.id !== runtime.id || !isVisible()) return;
       const msg = /** @type {Partial<ServerMessage> | null} */ (raw);
-      if (msg?.type === MSG.SNAPSHOT && msg.snapshot) onSnapshot(msg.snapshot);
-    }
-
-    function onDisconnect() {
-      port = null;
-      if (!running) return;
-      const delay = RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)];
-      attempt += 1;
-      clearTimeout(timer);
-      timer = setTimeout(connect, delay);
-    }
-
-    function disconnect() {
-      clearTimeout(timer);
-      port?.disconnect();
-      port = null;
+      if (msg?.type === MSG.SNAPSHOT && isSnapshot(msg.snapshot)) onSnapshot(msg.snapshot);
     }
 
     function onVisibility() {
-      if (doc.visibilityState === 'visible') connect();
-      else disconnect();
+      void requestSnapshot();
     }
 
     function orphan() {
+      if (orphaned) return;
+      orphaned = true;
       stop();
       onOrphaned();
     }
@@ -66,26 +68,21 @@
       if (running) return;
       running = true;
       doc.addEventListener('visibilitychange', onVisibility);
-      connect();
+      runtime.onMessage.addListener(onPush);
+      void requestSnapshot();
     }
 
     function stop() {
+      if (!running) return;
       running = false;
       doc.removeEventListener('visibilitychange', onVisibility);
-      disconnect();
-    }
-
-    /** @param {ClientMessage} msg */
-    function send(msg) {
-      if (!port) return;
       try {
-        port.postMessage(msg);
-      } catch (err) {
-        ns.logger.warn('send failed; reconnecting', err);
-        onDisconnect();
+        runtime.onMessage.removeListener(onPush);
+      } catch {
+        // The extension context is already gone; its listeners went with it.
       }
     }
 
-    return { start, stop, send };
+    return { start, stop, send: (msg) => void call(msg) };
   };
 })();

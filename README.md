@@ -8,7 +8,8 @@ tab strip.
 
 1. `chrome://extensions` → enable **Developer mode**.
 2. **Load unpacked** → select this folder.
-3. Reload any tabs that were already open (Chrome only injects into pages loaded afterwards).
+
+Tabs that were already open get the bar the first time you switch to them — no reload needed.
 
 ## Use
 
@@ -20,10 +21,22 @@ tab strip.
 The bar cannot appear on `chrome://` pages, the New Tab page or the Chrome Web Store — Chrome
 does not allow extensions there.
 
-### Memory footprint
+Keystrokes made while the bar has focus are kept from the page's own shortcuts. A page that
+listens in the capture phase on `window` can still see them; that is a browser limitation.
 
-Only visible tabs hold a connection to the service worker, and hidden tabs drop the bar's DOM
-until they are shown again, so idle tabs cost almost nothing.
+### Memory and speed
+
+- No connection is held open: the service worker sleeps between tab events, and only each
+  window's visible tab receives updates.
+- Hidden tabs drop the bar's DOM and data until they are shown again.
+- Favicons come from Chrome's own cache as small inline images, cached per site (bounded),
+  so pages never fetch — or learn about — other tabs' sites.
+
+### Permissions
+
+`tabs`, `tabGroups`, `storage`; `scripting` + host access to add the bar to tabs that were
+open before install; `favicon` to read Chrome's favicon cache. Host access matches the content
+script's sites, so it adds no install warning.
 
 ## Develop
 

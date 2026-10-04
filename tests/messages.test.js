@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { identifyClient, parseClientMessage } from '../background/messages.js';
-import { createPort } from './helpers/chrome.js';
+import { identifySender, parseClientMessage } from '../background/messages.js';
+import { createSender } from './helpers/chrome.js';
 
 describe('parseClientMessage', () => {
   it.each([
@@ -13,6 +13,7 @@ describe('parseClientMessage', () => {
       { type: 'close', tabId: 0 },
     ],
     [{ type: 'new' }, { type: 'new' }],
+    [{ type: 'hello' }, { type: 'hello' }],
     [{ type: 'new', tabId: 9, extra: true }, { type: 'new' }],
   ])('accepts %j', (raw, expected) => {
     expect(parseClientMessage(raw)).toEqual(expected);
@@ -34,26 +35,20 @@ describe('parseClientMessage', () => {
   });
 });
 
-describe('identifyClient', () => {
+describe('identifySender', () => {
   it('returns the sender tab for our own top-frame content script', () => {
-    expect(identifyClient(createPort({ tabId: 7, windowId: 3 }), 'ext-id')).toEqual({
+    expect(identifySender(createSender({ tabId: 7, windowId: 3 }), 'ext-id')).toEqual({
       tabId: 7,
       windowId: 3,
     });
   });
 
-  it('rejects a port with the wrong name', () => {
-    expect(identifyClient(createPort({ name: 'other' }), 'ext-id')).toBeNull();
-  });
-
-  it('rejects a port from another extension', () => {
-    expect(identifyClient(createPort({ extensionId: 'evil' }), 'ext-id')).toBeNull();
+  it('rejects messages from another extension', () => {
+    expect(identifySender(createSender({ extensionId: 'evil' }), 'ext-id')).toBeNull();
   });
 
   it('rejects sub-frames and senders without a tab', () => {
-    expect(identifyClient(createPort({ frameId: 2 }), 'ext-id')).toBeNull();
-    const port = createPort();
-    port.sender.tab = undefined;
-    expect(identifyClient(port, 'ext-id')).toBeNull();
+    expect(identifySender(createSender({ frameId: 2 }), 'ext-id')).toBeNull();
+    expect(identifySender({ id: 'ext-id', frameId: 0 }, 'ext-id')).toBeNull();
   });
 });

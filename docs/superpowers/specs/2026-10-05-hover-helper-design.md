@@ -181,11 +181,14 @@ dev-only tooling.
 
 ### Security
 
-- **Least privilege:** only `tabs`, `tabGroups`, `storage`; no host permissions beyond the
-  content-script match; no remote code; default MV3 CSP.
+- **Least privilege:** `tabs`, `tabGroups`, `storage`, plus (after final review) `scripting`
+  with host access equal to the content-script match — to add the bar to tabs open before
+  install/update — and `favicon` to inline favicons from Chrome's cache. No remote code;
+  default MV3 CSP.
 - **Untrusted data:** tab titles and URLs are page-controlled. The bar is built with
-  `document.createElement` + `textContent` only — never `innerHTML`. Favicon URLs are only used
-  if their scheme is `http:`, `https:`, or `data:image/`; otherwise the placeholder is shown.
+  `document.createElement` + `textContent` only — never `innerHTML`. Favicons reach the page
+  only as `data:image/` URLs inlined by the service worker, so a page never sees (or fetches)
+  other tabs' favicon URLs; anything else shows the placeholder.
 - **Message validation:** the background script accepts only ports named `hover-helper` from this
   extension's own content scripts (`sender.id === chrome.runtime.id`, `sender.tab` present),
   validates each message's `type` and that `tabId` is an integer in the sender's window, and
@@ -216,3 +219,10 @@ dev-only tooling.
 - `.gitignore` covers `node_modules/`, `coverage/`, `dist/`.
 - `README.md` with install (Load unpacked), usage, and development commands.
 - Versioning: SemVer in `manifest.json` and `package.json`, kept in sync.
+
+## Revision after final review (2026-10-05)
+
+- Long-lived ports replaced by one-shot messages: bars send `hello` when visible and receive
+  `snapshot` pushes (only each window's active tab is pushed to). The service worker can sleep.
+- Bars are injected on demand into tabs that predate install/update.
+- Host element is a custom `<hover-helper-bar>` tag tagged with a per-injection instance id.

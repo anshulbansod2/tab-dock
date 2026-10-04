@@ -13,8 +13,15 @@ describe('manifest.json', () => {
   });
 
   it('requests only the permissions the spec allows', () => {
-    expect([...manifest.permissions].sort()).toEqual(['storage', 'tabGroups', 'tabs']);
-    expect(manifest.host_permissions).toBeUndefined();
+    expect([...manifest.permissions].sort()).toEqual([
+      'favicon',
+      'scripting',
+      'storage',
+      'tabGroups',
+      'tabs',
+    ]);
+    // Same sites the content script already matches, so no extra install warning.
+    expect(manifest.host_permissions).toEqual(manifest.content_scripts[0].matches);
     expect(manifest.web_accessible_resources).toBeUndefined();
     expect(manifest.content_security_policy).toBeUndefined();
   });

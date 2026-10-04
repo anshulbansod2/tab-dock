@@ -1,25 +1,16 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEvent } from './helpers/chrome.js';
+import { createEvent, flushPromises } from './helpers/chrome.js';
 import { loadContent } from './helpers/content.js';
+
+const snapshot = { group: null, tabs: [] };
+const OWN = { id: 'ext-id' };
 
 let ns;
 let runtime;
-let ports;
 let doc;
 let onSnapshot;
 let onOrphaned;
 let conn;
-
-function fakePort() {
-  const port = {
-    postMessage: vi.fn(),
-    disconnect: vi.fn(),
-    onMessage: createEvent(),
-    onDisconnect: createEvent(),
-  };
-  ports.push(port);
-  return port;
-}
 
 function setVisibility(state) {
   doc.visibilityState = state;
@@ -31,115 +22,99 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  ports = [];
-  runtime = { id: 'ext-id', connect: vi.fn(fakePort) };
+  runtime = {
+    id: 'ext-id',
+    sendMessage: vi.fn(async (msg) => (msg.type === 'hello' ? snapshot : undefined)),
+    onMessage: createEvent(),
+  };
   doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   onSnapshot = vi.fn();
   onOrphaned = vi.fn();
   conn = ns.createConnection({ onSnapshot, onOrphaned, runtime, doc });
 });
 
-afterEach(() => {
-  conn.stop();
-  vi.useRealTimers();
-});
+afterEach(() => conn.stop());
 
 describe('createConnection', () => {
-  it('connects on start when visible', () => {
+  it('asks for a snapshot on start when visible', async () => {
     conn.start();
-    expect(runtime.connect).toHaveBeenCalledWith({ name: 'hover-helper' });
-  });
-
-  it('waits until the page becomes visible', () => {
-    doc.visibilityState = 'hidden';
-    conn.start();
-    expect(runtime.connect).not.toHaveBeenCalled();
-    setVisibility('visible');
-    expect(runtime.connect).toHaveBeenCalledOnce();
-  });
-
-  it('drops the port while hidden', () => {
-    conn.start();
-    setVisibility('hidden');
-    expect(ports[0].disconnect).toHaveBeenCalled();
-  });
-
-  it('delivers snapshots and ignores other messages', () => {
-    conn.start();
-    const snapshot = { group: null, tabs: [] };
-    ports[0].onMessage.emit({ type: 'snapshot', snapshot });
-    ports[0].onMessage.emit({ type: 'other' });
-    ports[0].onMessage.emit(null);
-    expect(onSnapshot).toHaveBeenCalledOnce();
+    await flushPromises();
+    expect(runtime.sendMessage).toHaveBeenCalledWith({ type: 'hello' });
     expect(onSnapshot).toHaveBeenCalledWith(snapshot);
   });
 
-  it('reconnects with backoff 100 → 1000 → 5000 ms and resets after a message', () => {
+  it('holds no listener-driven work while hidden, and asks again when shown', async () => {
+    doc.visibilityState = 'hidden';
     conn.start();
-    ports[0].onDisconnect.emit();
-    vi.advanceTimersByTime(99);
-    expect(runtime.connect).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(1);
-    expect(runtime.connect).toHaveBeenCalledTimes(2);
-    ports[1].onDisconnect.emit();
-    vi.advanceTimersByTime(1000);
-    expect(runtime.connect).toHaveBeenCalledTimes(3);
-    ports[2].onDisconnect.emit();
-    vi.advanceTimersByTime(5000);
-    expect(runtime.connect).toHaveBeenCalledTimes(4);
-    ports[3].onDisconnect.emit();
-    vi.advanceTimersByTime(5000);
-    expect(runtime.connect).toHaveBeenCalledTimes(5);
-    ports[4].onMessage.emit({ type: 'snapshot', snapshot: { group: null, tabs: [] } });
-    ports[4].onDisconnect.emit();
-    vi.advanceTimersByTime(100);
-    expect(runtime.connect).toHaveBeenCalledTimes(6);
-  });
-
-  it('orphans itself when the extension context is gone', () => {
-    conn.start();
-    delete runtime.id;
-    ports[0].onDisconnect.emit();
-    vi.advanceTimersByTime(100);
-    expect(onOrphaned).toHaveBeenCalledOnce();
-    expect(runtime.connect).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(10_000);
-    expect(onOrphaned).toHaveBeenCalledOnce();
-  });
-
-  it('orphans itself when connect throws', () => {
-    runtime.connect.mockImplementation(() => {
-      throw new Error('Extension context invalidated.');
-    });
-    conn.start();
-    expect(onOrphaned).toHaveBeenCalledOnce();
-  });
-
-  it('sends while connected and no-ops otherwise', () => {
-    conn.send({ type: 'new' });
-    conn.start();
-    conn.send({ type: 'new' });
-    expect(ports[0].postMessage).toHaveBeenCalledOnce();
-  });
-
-  it('treats a failed send as a disconnect', () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    conn.start();
-    ports[0].postMessage.mockImplementation(() => {
-      throw new Error('Attempting to use a disconnected port object');
-    });
-    conn.send({ type: 'new' });
-    vi.advanceTimersByTime(100);
-    expect(runtime.connect).toHaveBeenCalledTimes(2);
-  });
-
-  it('stop cancels pending reconnects and visibility handling', () => {
-    conn.start();
-    ports[0].onDisconnect.emit();
-    conn.stop();
-    vi.advanceTimersByTime(10_000);
+    await flushPromises();
+    expect(runtime.sendMessage).not.toHaveBeenCalled();
     setVisibility('visible');
-    expect(runtime.connect).toHaveBeenCalledTimes(1);
+    await flushPromises();
+    expect(onSnapshot).toHaveBeenCalledOnce();
+  });
+
+  it('ignores a hello reply that is not a snapshot', async () => {
+    runtime.sendMessage.mockResolvedValueOnce(null);
+    conn.start();
+    await flushPromises();
+    expect(onSnapshot).not.toHaveBeenCalled();
+  });
+
+  it('applies pushes from its own extension while visible only', async () => {
+    conn.start();
+    await flushPromises();
+    onSnapshot.mockClear();
+    runtime.onMessage.emit({ type: 'snapshot', snapshot }, OWN);
+    runtime.onMessage.emit({ type: 'snapshot', snapshot }, { id: 'other-ext' });
+    runtime.onMessage.emit({ type: 'other' }, OWN);
+    doc.visibilityState = 'hidden';
+    runtime.onMessage.emit({ type: 'snapshot', snapshot }, OWN);
+    expect(onSnapshot).toHaveBeenCalledOnce();
+  });
+
+  it('sends actions', async () => {
+    conn.start();
+    conn.send({ type: 'new' });
+    await flushPromises();
+    expect(runtime.sendMessage).toHaveBeenLastCalledWith({ type: 'new' });
+  });
+
+  it('orphans itself once when the extension context is gone', async () => {
+    conn.start();
+    await flushPromises();
+    runtime.sendMessage.mockRejectedValue(new Error('Extension context invalidated.'));
+    conn.send({ type: 'new' });
+    conn.send({ type: 'new' });
+    await flushPromises();
+    expect(onOrphaned).toHaveBeenCalledOnce();
+  });
+
+  it('orphans itself without messaging when runtime.id is gone', async () => {
+    delete runtime.id;
+    conn.start();
+    await flushPromises();
+    expect(onOrphaned).toHaveBeenCalledOnce();
+    expect(runtime.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('logs other send failures and keeps working', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    runtime.sendMessage.mockRejectedValueOnce(new Error('Could not establish connection.'));
+    conn.start();
+    await flushPromises();
+    expect(warn).toHaveBeenCalled();
+    expect(onOrphaned).not.toHaveBeenCalled();
+  });
+
+  it('stop removes its listeners', async () => {
+    conn.start();
+    await flushPromises();
+    conn.stop();
+    onSnapshot.mockClear();
+    runtime.onMessage.emit({ type: 'snapshot', snapshot }, OWN);
+    setVisibility('visible');
+    await flushPromises();
+    expect(onSnapshot).not.toHaveBeenCalled();
+    expect(runtime.onMessage.hasListeners()).toBe(false);
   });
 });

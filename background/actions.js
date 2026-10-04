@@ -6,7 +6,7 @@ import { isStaleTabError, logger } from './logger.js';
  * Performs a validated bar action for the tab that sent it. Never rejects: stale-tab failures
  * are expected and ignored, anything else is logged.
  *
- * @param {ClientMessage} msg
+ * @param {Exclude<ClientMessage, { type: 'hello' }>} msg
  * @param {ClientInfo} client
  * @param {typeof chrome} api
  * @returns {Promise<void>}

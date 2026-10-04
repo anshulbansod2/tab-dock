@@ -23,7 +23,10 @@ interface Snapshot {
 }
 
 type ClientMessage =
-  { type: 'activate'; tabId: number } | { type: 'close'; tabId: number } | { type: 'new' };
+  | { type: 'hello' }
+  | { type: 'activate'; tabId: number }
+  | { type: 'close'; tabId: number }
+  | { type: 'new' };
 
 type ServerMessage = { type: 'snapshot'; snapshot: Snapshot };
 

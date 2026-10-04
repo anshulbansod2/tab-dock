@@ -9,7 +9,13 @@
     mount.addEventListener('mousedown', onMouseDown);
     mount.addEventListener('auxclick', (e) => onAuxClick(e, handlers));
     mount.addEventListener('keydown', (e) => onKeyDown(e, handlers));
+    // Sites bind shortcuts on keyup/keypress too; none of the bar's keystrokes should reach them.
+    mount.addEventListener('keyup', stop);
+    mount.addEventListener('keypress', stop);
   };
+
+  /** @param {Event} event */
+  const stop = (event) => event.stopPropagation();
 
   /**
    * @param {Event} event
@@ -62,7 +68,7 @@
    */
   function onKeyDown(event, h) {
     // The bar owns the keyboard while focused; don't let the page's shortcuts see it.
-    event.stopPropagation();
+    stop(event);
     const tab = closest(event, '[role="tab"]');
     if (!(tab instanceof HTMLElement)) return;
     switch (event.key) {
