@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Hover Helper",
+  "version": "0.1.0",
+  "description": "A horizontal quick-switch bar for the tabs in your current Chrome tab group.",
+  "minimum_chrome_version": "116",
+  "permissions": ["tabs", "tabGroups", "storage"],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "run_at": "document_idle",
+      "js": [
+        "content/core.js",
+        "content/format.js",
+        "content/styles.js",
+        "content/dom.js",
+        "content/render.js",
+        "content/events.js",
+        "content/connection.js",
+        "content/bar.js",
+        "content/main.js"
+      ]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
