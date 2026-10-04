@@ -184,7 +184,7 @@ describe('mountBar', () => {
 
   it('sends actions to the background', async () => {
     await settle();
-    q('[role="tab"][data-tab-id="2"]').click();
+    q('.hh-tab[data-tab-id="2"]').click();
     q('[data-action="close"][data-tab-id="1"]').click();
     q('[data-action="new"]').click();
     expect(actions()).toEqual([

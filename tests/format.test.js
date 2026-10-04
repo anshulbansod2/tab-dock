@@ -6,18 +6,6 @@ beforeAll(async () => {
   ns = await loadContent('core', 'format');
 });
 
-describe('truncate', () => {
-  it('keeps short text', () => expect(ns.truncate('Inbox', 24)).toBe('Inbox'));
-  it('cuts long text with an ellipsis at the limit', () => {
-    const out = ns.truncate('A very long title that keeps going', 24);
-    expect(out).toBe('A very long title that…');
-    expect([...out]).toHaveLength(23);
-  });
-  it('never splits an emoji', () => {
-    expect(ns.truncate('😀😀😀😀', 3)).toBe('😀😀…');
-  });
-});
-
 describe('safeFavicon', () => {
   it.each([
     // Remote URLs would leak other tabs' sites to the page (resource timing, CSP reports).

@@ -34,7 +34,7 @@ beforeEach(() => {
 });
 
 const q = (sel) => mount.querySelector(sel);
-const tab = (id) => q(`[role="tab"][data-tab-id="${id}"]`);
+const tab = (id) => q(`.hh-tab[data-tab-id="${id}"]`);
 const key = (target, k) => {
   const event = new KeyboardEvent('keydown', {
     key: k,
@@ -88,14 +88,26 @@ describe('mouse', () => {
 });
 
 describe('keyboard', () => {
-  it.each(['Enter', ' '])('%j activates the focused tab', (k) => {
-    key(tab(1), k);
+  it.each(['Enter', ' '])('%j is left to the native button so it activates once', (k) => {
+    // A <button> turns Enter/Space into a click; handling the key as well would double-fire.
+    expect(tab(1)).toBeInstanceOf(HTMLButtonElement);
+    const event = key(tab(1), k);
+    expect(event.defaultPrevented).toBe(false);
+    expect(handlers.onActivate).not.toHaveBeenCalled();
+    tab(1).click(); // what the browser dispatches for that key
+    expect(handlers.onActivate).toHaveBeenCalledOnce();
     expect(handlers.onActivate).toHaveBeenCalledWith(1);
   });
 
-  it.each(['Delete', 'Backspace'])('%s closes the focused tab', (k) => {
-    key(tab(3), k);
+  it('Delete closes the focused tab', () => {
+    key(tab(3), 'Delete');
     expect(handlers.onClose).toHaveBeenCalledWith(3);
+  });
+
+  it('Backspace does not close (too easy to hit by accident)', () => {
+    const event = key(tab(3), 'Backspace');
+    expect(handlers.onClose).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it('moves focus with arrows (wrapping) and Home/End, updating tabindex', () => {

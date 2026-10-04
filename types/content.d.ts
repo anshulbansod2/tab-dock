@@ -10,7 +10,6 @@ interface ContentConstants {
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
-  TITLE_MAX_CHARS: number;
   UNGROUPED_LABEL: string;
   NEUTRAL_COLOR: string;
   GROUP_COLORS: Readonly<Record<string, string>>;
@@ -65,7 +64,6 @@ interface HoverHelperNamespace {
   instance: string;
   logger: Logger;
   styles: string;
-  truncate(text: string, max: number): string;
   safeFavicon(url: string | null): string | null;
   groupLabel(group: BarGroup | null): string;
   groupColor(group: BarGroup | null): string;

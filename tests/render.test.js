@@ -30,7 +30,7 @@ const grouped = {
   group: { id: 10, title: 'Research', color: 'blue' },
   tabs: [tab(1), tab(2, { active: true }), tab(3)],
 };
-const tabsIn = () => [...mount.querySelectorAll('[role="tab"]')];
+const tabsIn = () => [...mount.querySelectorAll('button.hh-tab')];
 const renderTabs = (tabs) =>
   ns.render(mount, { snapshot: { group: null, tabs }, collapsed: false });
 
@@ -39,7 +39,7 @@ describe('render (expanded)', () => {
     ns.render(mount, { snapshot: grouped, collapsed: false });
     expect(mount.querySelector('.hh-label').textContent).toBe('Research');
     expect(tabsIn().map((t) => t.textContent)).toEqual(['Tab 1', 'Tab 2', 'Tab 3']);
-    expect(mount.querySelector('[role="tablist"]').getAttribute('aria-label')).toBe(
+    expect(mount.querySelector('[role="toolbar"]').getAttribute('aria-label')).toBe(
       'Tabs in Research',
     );
     expect(mount.querySelector('[data-action="new"]').getAttribute('aria-label')).toBe(
@@ -50,12 +50,29 @@ describe('render (expanded)', () => {
     );
   });
 
-  it('highlights the active tab with roving tabindex', () => {
+  it('is a toolbar holding a list of native tab buttons, each with its close button', () => {
     ns.render(mount, { snapshot: grouped, collapsed: false });
-    expect(tabsIn().map((t) => t.getAttribute('aria-selected'))).toEqual([
-      'false',
-      'true',
-      'false',
+    const items = [...mount.querySelectorAll('[role="toolbar"] > ul > li')];
+    expect(items).toHaveLength(3);
+    for (const item of items) {
+      const [tabButton, close] = item.children;
+      expect(tabButton.tagName).toBe('BUTTON');
+      expect(tabButton.type).toBe('button');
+      expect(tabButton.className).toContain('hh-tab');
+      expect(tabButton.dataset.action).toBe('activate');
+      expect(close.tagName).toBe('BUTTON');
+      expect(close.dataset.action).toBe('close');
+    }
+    expect(mount.querySelector('[role="tab"], [role="tablist"], [aria-selected]')).toBeNull();
+  });
+
+  it('marks the current tab with aria-current and roving tabindex', () => {
+    ns.render(mount, { snapshot: grouped, collapsed: false });
+    expect(tabsIn().map((t) => t.getAttribute('aria-current'))).toEqual([null, 'page', null]);
+    expect(tabsIn().map((t) => t.getAttribute('aria-keyshortcuts'))).toEqual([
+      'Delete',
+      'Delete',
+      'Delete',
     ]);
     expect(tabsIn().map((t) => t.tabIndex)).toEqual([-1, 0, -1]);
   });
@@ -74,11 +91,14 @@ describe('render (expanded)', () => {
     );
   });
 
-  it('truncates long titles but keeps the full title as a tooltip', () => {
+  it('keeps the full title as the accessible name, truncating only visually', () => {
     const long = 'An extremely long page title that will not fit';
     renderTabs([tab(1, { title: long })]);
-    expect(tabsIn()[0].textContent).toBe(ns.truncate(long, 24));
-    expect(tabsIn()[0].title).toBe(long);
+    expect(tabsIn()[0].textContent).toBe(long);
+    expect(tabsIn()[0].title).toBe(long); // mouse tooltip
+    expect(ns.styles).toMatch(
+      /\.hh-title\s*\{[^}]*max-width:\s*24ch[^}]*text-overflow:\s*ellipsis/,
+    );
   });
 
   it('renders hostile titles as inert text', () => {

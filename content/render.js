@@ -12,7 +12,7 @@
 
   ns.render = (mount, view) => {
     const focus = focusKey(mount);
-    const previousScroll = mount.querySelector('[role="tablist"]')?.scrollLeft;
+    const previousScroll = mount.querySelector('.hh-tabs')?.scrollLeft;
     const root = document.createElement('div');
     root.className = 'hh-root';
     root.append(view.collapsed ? ns.dom.buildPill(view) : ns.dom.buildBar(view));
@@ -51,13 +51,13 @@
    * @param {number | undefined} previous
    */
   function restoreScroll(mount, previous) {
-    const list = mount.querySelector('[role="tablist"]');
+    const list = mount.querySelector('.hh-tabs');
     if (!list) return;
     if (previous !== undefined) {
       list.scrollLeft = previous;
       return;
     }
-    const active = list.querySelector('[aria-selected="true"]');
+    const active = list.querySelector('[aria-current="page"]');
     if (!active) return;
     const listBox = list.getBoundingClientRect();
     const tabBox = active.getBoundingClientRect();

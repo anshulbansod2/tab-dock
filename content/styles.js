@@ -37,20 +37,21 @@
   background: color-mix(in srgb, var(--hh-group) 18%, transparent);
 }
 .hh-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--hh-group); }
-.hh-tabs {
-  display: flex; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin;
+.hh-tabs { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.hh-list {
+  display: flex; gap: 4px; width: max-content; margin: 0; padding: 0; list-style: none;
 }
 .hh-chip {
-  display: flex; align-items: center; flex: none; max-width: 200px; height: 24px;
+  display: flex; align-items: center; flex: none; height: 24px;
   border-radius: 6px; background: var(--hh-chip);
 }
 .hh-chip:hover { background: var(--hh-chip-hover); }
-.hh-chip[data-active] { background: var(--hh-active); }
+.hh-chip:has(> [aria-current='page']) { background: var(--hh-active); }
 .hh-tab {
-  display: flex; align-items: center; gap: 6px; min-width: 0; height: 100%;
-  padding: 0 4px 0 8px; border-radius: 6px; cursor: pointer; outline: none;
+  all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 6px;
+  min-width: 0; height: 100%; padding: 0 4px 0 8px; border-radius: 6px; cursor: pointer;
 }
-.hh-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hh-title { max-width: 24ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .hh-favicon { width: 16px; height: 16px; flex: none; border-radius: 3px; }
 .hh-favicon--placeholder { background: var(--hh-muted); opacity: 0.4; }
 .hh-btn {
@@ -59,7 +60,8 @@
 }
 .hh-btn:hover { background: var(--hh-chip-hover); color: var(--hh-fg); }
 .hh-close { visibility: hidden; margin-right: 2px; }
-.hh-chip:hover .hh-close, .hh-chip:focus-within .hh-close, .hh-chip[data-active] .hh-close {
+.hh-chip:hover .hh-close, .hh-chip:focus-within .hh-close,
+.hh-chip:has(> [aria-current='page']) .hh-close {
   visibility: visible;
 }
 .hh-pill {

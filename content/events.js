@@ -56,7 +56,7 @@
    */
   function onAuxClick(event, h) {
     if (event.button !== MIDDLE_BUTTON) return;
-    const tab = closest(event, '.hh-chip')?.querySelector('[role="tab"]');
+    const tab = closest(event, '.hh-chip')?.querySelector('.hh-tab');
     if (!tab) return;
     event.preventDefault();
     h.onClose(tabIdOf(tab));
@@ -69,16 +69,11 @@
   function onKeyDown(event, h) {
     // The bar owns the keyboard while focused; don't let the page's shortcuts see it.
     stop(event);
-    const tab = closest(event, '[role="tab"]');
+    const tab = closest(event, '.hh-tab');
     if (!(tab instanceof HTMLElement)) return;
+    // Enter/Space are left to the native <button>, which turns them into one click.
     switch (event.key) {
-      case 'Enter':
-      case ' ':
-        event.preventDefault();
-        h.onActivate(tabIdOf(tab));
-        break;
       case 'Delete':
-      case 'Backspace':
         event.preventDefault();
         h.onClose(tabIdOf(tab));
         break;
@@ -99,8 +94,8 @@
    * @param {string} key
    */
   function moveFocus(current, key) {
-    const list = current.closest('[role="tablist"]');
-    const tabs = list ? [...list.querySelectorAll('[role="tab"]')] : [];
+    const list = current.closest('[role="toolbar"]');
+    const tabs = list ? [...list.querySelectorAll('.hh-tab')] : [];
     const i = tabs.indexOf(current);
     const step = key === 'ArrowRight' ? 1 : -1;
     let next = (i + step + tabs.length) % tabs.length;

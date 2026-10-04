@@ -2,7 +2,6 @@
 // Element builders. Every piece of tab data goes through textContent/attributes, never HTML.
 (() => {
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
-  const { TITLE_MAX_CHARS } = ns.constants;
 
   /**
    * @template {keyof HTMLElementTagNameMap} K
@@ -56,41 +55,42 @@
    * @param {boolean} focusable
    */
   function chip(tab, focusable) {
-    const wrapper = el('div', 'hh-chip');
-    wrapper.setAttribute('role', 'presentation');
-    if (tab.active) wrapper.dataset.active = '';
-    const tabEl = el('div', 'hh-tab');
-    tabEl.setAttribute('role', 'tab');
-    tabEl.setAttribute('aria-selected', String(tab.active));
+    const item = el('li', 'hh-chip');
+    // A native button: Enter/Space activate it and its text (the full title) is its name.
+    const tabEl = el('button', 'hh-tab');
+    tabEl.type = 'button';
+    if (tab.active) tabEl.setAttribute('aria-current', 'page');
+    tabEl.setAttribute('aria-keyshortcuts', 'Delete');
     tabEl.tabIndex = focusable ? 0 : -1;
-    tabEl.title = tab.title;
+    tabEl.title = tab.title; // mouse tooltip for the visually truncated title
     tabEl.dataset.action = 'activate';
     tabEl.dataset.tabId = String(tab.id);
-    tabEl.append(
-      favicon(tab.favIconUrl),
-      el('span', 'hh-title', ns.truncate(tab.title, TITLE_MAX_CHARS)),
-    );
+    tabEl.append(favicon(tab.favIconUrl), el('span', 'hh-title', tab.title));
     const close = button('hh-close', '×', `Close ${tab.title}`, 'close');
     close.dataset.tabId = String(tab.id);
     close.tabIndex = -1; // keyboard users close with Delete on the focused tab
-    wrapper.append(tabEl, close);
-    return wrapper;
+    item.append(tabEl, close);
+    return item;
   }
 
   /**
+   * A toolbar of tab buttons with one Tab stop (roving tabindex); not a tablist, as there are
+   * no tab panels.
    * @param {BarTab[]} tabs
    * @param {string} label
    */
   function tabList(tabs, label) {
-    const list = el('div', 'hh-tabs');
-    list.setAttribute('role', 'tablist');
-    list.setAttribute('aria-label', `Tabs in ${label}`);
+    const toolbar = el('div', 'hh-tabs');
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.setAttribute('aria-label', `Tabs in ${label}`);
     const focusIndex = Math.max(
       0,
       tabs.findIndex((t) => t.active),
     );
+    const list = el('ul', 'hh-list');
     list.append(...tabs.map((tab, i) => chip(tab, i === focusIndex)));
-    return list;
+    toolbar.append(list);
+    return toolbar;
   }
 
   /** @param {string} label */
