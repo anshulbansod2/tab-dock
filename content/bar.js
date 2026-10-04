@@ -4,12 +4,39 @@
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
   const { HOST_TAG, STORAGE_KEY, MSG } = ns.constants;
 
+  /**
+   * The host is the one element page CSS can reach (shadow :host rules lose to page rules on
+   * it). Reddit, for one, hides unregistered custom elements with :not(:defined), and content
+   * scripts can't register ours, so its box is pinned inline with !important, which no page
+   * stylesheet can override. Spans the bottom edge, as a top-layer popover or (fallback) a
+   * fixed element; only the dock and pill take clicks.
+   */
+  const HOST_STYLE = /** @type {const} */ ([
+    ['all', 'initial'],
+    ['position', 'fixed'],
+    ['inset', 'auto 0 0 0'],
+    ['z-index', '2147483647'],
+    ['display', 'block'],
+    ['visibility', 'visible'],
+    ['opacity', '1'],
+    ['width', 'auto'],
+    ['height', 'auto'],
+    ['margin', '0'],
+    ['padding', '0'],
+    ['border', '0'],
+    ['overflow', 'visible'],
+    ['background', 'transparent'],
+    ['pointer-events', 'none'],
+  ]);
+
   ns.mountBar = ({ doc, runtime, storage, storageEvents, shadowMode }) => {
     const existing = /** @type {HTMLElement[]} */ ([...doc.getElementsByTagName(HOST_TAG)]);
     if (existing.some((el) => el.dataset.instance === ns.instance)) return null; // already mounted
     existing.forEach((el) => el.remove()); // left behind by a reloaded extension instance
     const host = doc.createElement(HOST_TAG);
     host.dataset.instance = ns.instance;
+    for (const [property, value] of HOST_STYLE)
+      host.style.setProperty(property, value, 'important');
     const shadow = host.attachShadow({ mode: shadowMode });
     applyStyles(shadow, doc);
     const mount = doc.createElement('div');
@@ -38,6 +65,7 @@
 
     doc.documentElement.append(host);
     showInTopLayer(host);
+    animateEntrance(host);
     connection.start();
     return { host, connection, unmount };
   };
@@ -103,6 +131,23 @@
       host.removeAttribute('popover'); // a closed popover is display:none
       ns.logger.warn('top layer unavailable', err);
     }
+  }
+
+  /**
+   * Slides the dock up once when it first appears; re-renders never replay it. Runs through the
+   * Web Animations API because the host's inline styles would override a :host animation.
+   * @param {HTMLElement} host
+   */
+  function animateEntrance(host) {
+    if (typeof host.animate !== 'function') return;
+    if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    host.animate(
+      [
+        { transform: 'translateY(16px)', opacity: 0 },
+        { transform: 'none', opacity: 1 },
+      ],
+      { duration: 220, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+    );
   }
 
   /**

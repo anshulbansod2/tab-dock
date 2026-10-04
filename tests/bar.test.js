@@ -137,6 +137,36 @@ describe('mountBar', () => {
     });
   });
 
+  it('pins its host styles inline with !important so page CSS cannot hide or move it', () => {
+    // e.g. Reddit hides unregistered custom elements: :not(:defined) { visibility: hidden }.
+    const host = mounted.host;
+    for (const [prop, value] of [
+      ['visibility', 'visible'],
+      ['display', 'block'],
+      ['position', 'fixed'],
+      ['opacity', '1'],
+      ['pointer-events', 'none'],
+    ]) {
+      expect(host.style.getPropertyValue(prop)).toBe(value);
+      expect(host.style.getPropertyPriority(prop)).toBe('important');
+    }
+  });
+
+  it('animates its first appearance once, unless reduced motion is requested', () => {
+    mounted.unmount();
+    const animate = vi.fn();
+    HTMLElement.prototype.animate = animate;
+    window.matchMedia = vi.fn(() => ({ matches: false }));
+    mounted = mount();
+    expect(animate).toHaveBeenCalledOnce();
+    mounted.unmount();
+    window.matchMedia = vi.fn(() => ({ matches: true }));
+    mounted = mount();
+    expect(animate).toHaveBeenCalledOnce();
+    delete HTMLElement.prototype.animate;
+    delete window.matchMedia;
+  });
+
   it('is not blocked by a page element that reuses our old id', () => {
     mounted.unmount();
     const decoy = document.createElement('div');
