@@ -36,9 +36,10 @@
       onActivate: (tabId) => connection.send({ type: MSG.ACTIVATE, tabId }),
       onClose: (tabId) => connection.send({ type: MSG.CLOSE, tabId }),
       onNew: () => connection.send({ type: MSG.NEW }),
-      onToggleCollapse: () => persistCollapsed(storage, !view.isCollapsed(), view.setCollapsed),
+      onToggleCollapse: () =>
+        void persistCollapsed(storage, !view.isCollapsed(), view.setCollapsed),
     });
-    syncCollapsed(storage, storageEvents, view.setCollapsed);
+    void syncCollapsed(storage, storageEvents, view.setCollapsed);
 
     doc.addEventListener('visibilitychange', onVisibility);
     doc.documentElement.append(host);
@@ -123,11 +124,13 @@
    * @param {boolean} collapsed
    * @param {(collapsed: boolean) => void} apply
    */
-  function persistCollapsed(storage, collapsed, apply) {
+  async function persistCollapsed(storage, collapsed, apply) {
     apply(collapsed);
-    storage
-      .set({ [STORAGE_KEY]: collapsed })
-      .catch((/** @type {unknown} */ err) => ns.logger.warn('saving collapsed state failed', err));
+    try {
+      await storage.set({ [STORAGE_KEY]: collapsed });
+    } catch (err) {
+      ns.logger.warn('saving collapsed state failed', err);
+    }
   }
 
   /**
@@ -135,16 +138,16 @@
    * @param {typeof chrome.storage.onChanged} storageEvents
    * @param {(collapsed: boolean) => void} apply
    */
-  function syncCollapsed(storage, storageEvents, apply) {
-    storage
-      .get(STORAGE_KEY)
-      .then((items) => apply(items[STORAGE_KEY] === true))
-      .catch((/** @type {unknown} */ err) => {
-        ns.logger.warn('reading collapsed state failed', err);
-        apply(false);
-      });
+  async function syncCollapsed(storage, storageEvents, apply) {
     storageEvents.addListener((changes, area) => {
       if (area === 'local' && STORAGE_KEY in changes) apply(changes[STORAGE_KEY].newValue === true);
     });
+    try {
+      const items = await storage.get(STORAGE_KEY);
+      apply(items[STORAGE_KEY] === true);
+    } catch (err) {
+      ns.logger.warn('reading collapsed state failed', err);
+      apply(false);
+    }
   }
 })();

@@ -54,7 +54,11 @@ export function createHub({
         const snapshot = await favicons.inline(buildSnapshot({ tabs, groups, tabId }), tabs);
         /** @type {ServerMessage} */
         const message = { type: MSG.SNAPSHOT, snapshot };
-        return api.tabs.sendMessage(tabId, message, { frameId: 0 }).catch(() => injectBar(tab));
+        try {
+          await api.tabs.sendMessage(tabId, message, { frameId: 0 });
+        } catch {
+          await injectBar(tab); // no bar is listening in this tab yet
+        }
       }),
     );
   }
@@ -80,18 +84,24 @@ export function createHub({
   function schedule(windowId) {
     if (windowId < 0) return; // chrome.windows.WINDOW_ID_NONE
     clearTimeout(timers.get(windowId));
-    const flush = () => {
+    const flush = async () => {
       timers.delete(windowId);
-      pushToVisible(windowId).catch((err) => logger.error('push failed', err));
+      try {
+        await pushToVisible(windowId);
+      } catch (err) {
+        logger.error('push failed', err);
+      }
     };
     timers.set(windowId, setTimeout(flush, debounceMs));
   }
 
-  function scheduleAll() {
-    api.tabs
-      .query({ active: true })
-      .then((tabs) => new Set(tabs.map((tab) => tab.windowId)).forEach(schedule))
-      .catch((err) => logger.error('refresh failed', err));
+  async function scheduleAll() {
+    try {
+      const tabs = await api.tabs.query({ active: true });
+      new Set(tabs.map((tab) => tab.windowId)).forEach(schedule);
+    } catch (err) {
+      logger.error('refresh failed', err);
+    }
   }
 
   return { snapshotFor, schedule, scheduleAll };

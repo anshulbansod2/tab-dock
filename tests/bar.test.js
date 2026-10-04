@@ -143,6 +143,20 @@ describe('mountBar', () => {
     expect(storage.set).toHaveBeenCalledWith({ [KEY]: true });
   });
 
+  it('keeps the local collapse if saving it fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    storage.set.mockRejectedValueOnce(new Error('quota'));
+    await settle();
+    q('[data-action="collapse"]').click();
+    await settle();
+    expect(q('.hh-pill')).not.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      '[hover-helper]',
+      'saving collapsed state failed',
+      expect.any(Error),
+    );
+  });
+
   it('starts collapsed when storage says so', async () => {
     storage.get.mockResolvedValueOnce({ [KEY]: true });
     remount();
@@ -161,11 +175,16 @@ describe('mountBar', () => {
   });
 
   it('still renders if reading storage fails', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     storage.get.mockRejectedValueOnce(new Error('quota'));
     remount();
     await settle();
     expect(q('.hh-bar')).not.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      '[hover-helper]',
+      'reading collapsed state failed',
+      expect.any(Error),
+    );
   });
 
   it('frees its DOM and snapshot while the page is hidden, repainting when shown', async () => {

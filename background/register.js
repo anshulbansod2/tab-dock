@@ -22,7 +22,7 @@ export function registerBackground(api) {
     onClientMessage(raw, sender, sendResponse, hub, api),
   );
   // After install/update, open pages have no bar; refreshing the visible ones injects it.
-  api.runtime.onInstalled.addListener(() => hub.scheduleAll());
+  api.runtime.onInstalled.addListener(() => void hub.scheduleAll());
   registerTabEvents(api, hub);
   registerGroupEvents(api, hub);
   return hub;
@@ -44,11 +44,15 @@ function onClientMessage(raw, sender, sendResponse, hub, api) {
     return false;
   }
   if (msg.type === MSG.HELLO) {
-    hub.snapshotFor(client).then(sendResponse, (err) => {
-      logger.error('hello failed', err);
-      sendResponse(null);
-    });
-    return true;
+    (async () => {
+      try {
+        sendResponse(await hub.snapshotFor(client));
+      } catch (err) {
+        logger.error('hello failed', err);
+        sendResponse(null);
+      }
+    })();
+    return true; // keeps the channel open for the async sendResponse
   }
   void handleAction(msg, client, api);
   return false;
@@ -71,7 +75,7 @@ function registerTabEvents(api, hub) {
   tabs.onDetached.addListener((_id, info) => hub.schedule(info.oldWindowId));
   tabs.onAttached.addListener((_id, info) => hub.schedule(info.newWindowId));
   // Prerender swaps a tab's id; the window isn't in the payload, so refresh all.
-  tabs.onReplaced.addListener(() => hub.scheduleAll());
+  tabs.onReplaced.addListener(() => void hub.scheduleAll());
 }
 
 /**

@@ -75,6 +75,14 @@ describe('createHub', () => {
     expect(favicons.inline.mock.calls[0][1].map((t) => t.id)).toEqual([1, 2]);
   });
 
+  it('logs, not throws, when scheduleAll cannot list tabs', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    api.tabs.query.mockRejectedValueOnce(new Error('boom'));
+    hub.scheduleAll();
+    await flushPromises();
+    expect(error).toHaveBeenCalledWith('[hover-helper]', 'refresh failed', expect.any(Error));
+  });
+
   it('ignores WINDOW_ID_NONE', async () => {
     hub.schedule(-1);
     await settle();
