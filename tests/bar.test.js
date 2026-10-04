@@ -78,6 +78,65 @@ describe('mountBar', () => {
     expect(document.querySelectorAll('hover-helper-bar')).toHaveLength(1);
   });
 
+  it('stays a fixed-position host where the popover API is missing', async () => {
+    await settle();
+    expect('popover' in HTMLElement.prototype).toBe(false); // jsdom
+    expect(mounted.host.hasAttribute('popover')).toBe(false);
+    expect(q('.hh-bar')).not.toBeNull();
+  });
+
+  describe('with the popover API', () => {
+    let showPopover;
+
+    beforeEach(() => {
+      Object.defineProperty(HTMLElement.prototype, 'popover', {
+        configurable: true,
+        get() {
+          return this.getAttribute('popover');
+        },
+        set(value) {
+          this.setAttribute('popover', value);
+        },
+      });
+      showPopover = vi.fn(function () {
+        if (!this.isConnected) throw new DOMException('Not connected', 'InvalidStateError');
+      });
+      HTMLElement.prototype.showPopover = showPopover;
+    });
+
+    afterEach(() => {
+      delete HTMLElement.prototype.popover;
+      delete HTMLElement.prototype.showPopover;
+    });
+
+    it('shows the host as a manual popover in the top layer once connected', async () => {
+      remount();
+      await settle();
+      expect(mounted.host.getAttribute('popover')).toBe('manual');
+      expect(showPopover).toHaveBeenCalledOnce();
+      expect(showPopover.mock.contexts[0]).toBe(mounted.host);
+      expect(showPopover.mock.results[0].type).toBe('return'); // connected at call time
+      expect(q('.hh-bar')).not.toBeNull();
+    });
+
+    it('falls back to fixed positioning if showPopover throws', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      showPopover.mockImplementationOnce(() => {
+        throw new DOMException('Already open', 'InvalidStateError');
+      });
+      remount();
+      await settle();
+      // A popover that isn't open is display:none, so drop the attribute to stay visible.
+      expect(mounted.host.hasAttribute('popover')).toBe(false);
+      expect(warn).toHaveBeenCalledWith(
+        '[hover-helper]',
+        'top layer unavailable',
+        expect.any(DOMException),
+      );
+      expect(q('.hh-bar')).not.toBeNull();
+    });
+  });
+
   it('is not blocked by a page element that reuses our old id', () => {
     mounted.unmount();
     const decoy = document.createElement('div');

@@ -43,6 +43,7 @@
 
     doc.addEventListener('visibilitychange', onVisibility);
     doc.documentElement.append(host);
+    showInTopLayer(host);
     connection.start();
     return { host, connection, unmount };
   };
@@ -97,6 +98,23 @@
       },
       dispose: cancel,
     };
+  }
+
+  /**
+   * A manual popover renders in the top layer: above any page z-index and unaffected by a
+   * transform or filter on <html>. Without the API the host stays a fixed-position element
+   * (no polyfill: extensions can't load remote code).
+   * @param {HTMLElement} host - must already be connected
+   */
+  function showInTopLayer(host) {
+    if (!('popover' in HTMLElement.prototype) || typeof host.showPopover !== 'function') return;
+    host.setAttribute('popover', 'manual');
+    try {
+      host.showPopover();
+    } catch (err) {
+      host.removeAttribute('popover'); // a closed popover is display:none
+      ns.logger.warn('top layer unavailable', err);
+    }
   }
 
   /**

@@ -5,10 +5,16 @@
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
 
   ns.styles = `
-:host { all: initial; }
+:host {
+  all: initial;
+  /* Spans the bottom edge, as a top-layer popover or (fallback) a fixed element; reset the
+     UA popover box so only the bar and pill take clicks. */
+  position: fixed; inset: auto 0 0 0; z-index: 2147483647; display: block;
+  width: auto; height: auto; margin: 0; padding: 0; border: 0; overflow: visible;
+  background: transparent; color: initial; pointer-events: none;
+}
 .hh-root {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2147483647;
-  pointer-events: none; color: var(--hh-fg);
+  color: var(--hh-fg);
   font: 12px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --hh-bg: #ffffff; --hh-fg: #202124; --hh-muted: #5f6368; --hh-border: #dadce0;
   --hh-chip: #f1f3f4; --hh-chip-hover: #e8eaed; --hh-active: #d3e3fd; --hh-focus: #0b57d0;
