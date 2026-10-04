@@ -162,7 +162,17 @@ describe('render (focus)', () => {
 });
 
 describe('render (icons)', () => {
-  it.each(['new', 'collapse', 'close'])(
+  it('makes the group name the collapse control (no separate collapse icon)', () => {
+    ns.render(mount, { snapshot: grouped, collapsed: false });
+    const label = mount.querySelector('.hh-label');
+    expect(label.tagName).toBe('BUTTON');
+    expect(label.getAttribute('data-action')).toBe('collapse');
+    expect(label.getAttribute('aria-expanded')).toBe('true');
+    expect(label.textContent).toBe('Research');
+    expect(mount.querySelectorAll('[data-action="collapse"]')).toHaveLength(1);
+  });
+
+  it.each(['new', 'close'])(
     'draws the %s button as a decorative SVG icon, named by its aria-label',
     (action) => {
       ns.render(mount, { snapshot: grouped, collapsed: false });
@@ -200,9 +210,9 @@ describe('styles', () => {
       new RegExp(`(^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`),
     )?.[2] ?? '';
 
-  it('animates only the bar’s first appearance, not every re-render', () => {
-    expect(rule('.hh-bar')).not.toMatch(/animation/);
-    expect(ns.styles).toMatch(/:host\s*\{[^}]*animation/);
+  it('never animates in CSS, so re-renders cannot replay an entrance', () => {
+    // The one entrance animation runs from bar.js on the host (whose styles are pinned inline).
+    expect(ns.styles).not.toMatch(/animation:/);
   });
 
   it('defines one light-dark() token set and a visible focus ring', () => {
@@ -238,6 +248,13 @@ describe('styles', () => {
     expect(ns.styles).toMatch(
       /\.hh-chip:has\(> \[aria-current='page'\]\)::after\s*\{[^}]*var\(--hh-group\)/,
     );
+  });
+
+  it('shrinks tab chips to fit before scrolling, like Chrome’s own tab strip', () => {
+    expect(rule('.hh-list')).toMatch(/width:\s*100%/);
+    expect(rule('.hh-chip')).toMatch(/flex:\s*0 1 auto/);
+    expect(rule('.hh-chip')).toMatch(/min-width:\s*\d+px/);
+    expect(rule('.hh-tab')).toMatch(/min-width:\s*0/);
   });
 
   it('fades the tab strip’s edges with a mask rather than an overlay', () => {

@@ -21,7 +21,6 @@
   /** 16×16 stroke paths; drawn with currentColor so they follow the button's state. */
   const ICONS = Object.freeze({
     plus: 'M8 3.5v9M3.5 8h9',
-    chevron: 'M4.5 6.5 8 10l3.5-3.5',
     close: 'M5 5l6 6M11 5l-6 6',
   });
 
@@ -117,10 +116,18 @@
     return toolbar;
   }
 
-  /** @param {string} label */
+  /**
+   * The group name doubles as the collapse control (a disclosure button): its visible text
+   * names it and aria-expanded tells assistive tech what pressing it does.
+   * @param {string} label
+   */
   function groupLabel(label) {
-    const node = el('div', 'hh-label');
-    node.append(el('span', 'hh-dot'), el('span', '', label));
+    const node = el('button', 'hh-label');
+    node.type = 'button';
+    node.title = 'Collapse';
+    node.dataset.action = 'collapse';
+    node.setAttribute('aria-expanded', 'true');
+    node.append(el('span', 'hh-dot'), el('span', 'hh-label-text', label));
     return node;
   }
 
@@ -129,13 +136,10 @@
     const label = ns.groupLabel(snapshot.group);
     const bar = el('div', 'hh-bar');
     bar.style.setProperty('--hh-group', ns.groupColor(snapshot.group));
-    const collapse = button('hh-collapse', 'chevron', 'Collapse tab bar', 'collapse');
-    collapse.setAttribute('aria-expanded', 'true');
     bar.append(
       groupLabel(label),
       tabList(snapshot.tabs, label),
       button('hh-new', 'plus', `New tab in ${label}`, 'new'),
-      collapse,
     );
     return bar;
   }

@@ -87,6 +87,48 @@ describe('mouse', () => {
   });
 });
 
+describe('wheel', () => {
+  /** jsdom has no layout: give the strip a scrollable size and a working scrollLeft. */
+  function makeScrollable(strip, { scrollWidth = 900, clientWidth = 300 } = {}) {
+    let left = 0;
+    Object.defineProperty(strip, 'scrollWidth', { value: scrollWidth, configurable: true });
+    Object.defineProperty(strip, 'clientWidth', { value: clientWidth, configurable: true });
+    Object.defineProperty(strip, 'scrollLeft', {
+      get: () => left,
+      set: (v) => {
+        left = Math.max(0, Math.min(v, scrollWidth - clientWidth));
+      },
+      configurable: true,
+    });
+  }
+  const wheel = (target, init) => {
+    const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, ...init });
+    target.dispatchEvent(event);
+    return event;
+  };
+
+  it('scrolls the tab strip sideways with a vertical mouse wheel', () => {
+    const strip = q('.hh-tabs');
+    makeScrollable(strip);
+    const event = wheel(tab(2), { deltaY: 120 });
+    expect(strip.scrollLeft).toBe(120);
+    expect(event.defaultPrevented).toBe(true); // the page underneath must not scroll
+  });
+
+  it('leaves the wheel alone when the tabs already fit', () => {
+    const strip = q('.hh-tabs');
+    makeScrollable(strip, { scrollWidth: 300, clientWidth: 300 });
+    expect(wheel(tab(2), { deltaY: 120 }).defaultPrevented).toBe(false);
+  });
+
+  it('leaves horizontal (trackpad) scrolling to the browser', () => {
+    const strip = q('.hh-tabs');
+    makeScrollable(strip);
+    expect(wheel(tab(2), { deltaX: 80, deltaY: 5 }).defaultPrevented).toBe(false);
+    expect(strip.scrollLeft).toBe(0);
+  });
+});
+
 describe('keyboard', () => {
   it.each(['Enter', ' '])('%j is left to the native button so it activates once', (k) => {
     // A <button> turns Enter/Space into a click; handling the key as well would double-fire.

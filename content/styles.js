@@ -6,16 +6,8 @@
   const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
 
   ns.styles = `
-:host {
-  all: initial;
-  /* Spans the bottom edge, as a top-layer popover or (fallback) a fixed element; reset the
-     UA popover box so only the dock and pill take clicks. */
-  position: fixed; inset: auto 0 0 0; z-index: 2147483647; display: block;
-  width: auto; height: auto; margin: 0; padding: 0; border: 0; overflow: visible;
-  background: transparent; color: initial; pointer-events: none;
-}
 /* Tokens stay unregistered so each light-dark() resolves where it is used, against that
-   element's color-scheme. :host's all: initial keeps the page's color-scheme out. */
+   element's color-scheme. The host's inline all: initial (bar.js) keeps the page's out. */
 .hh-root {
   display: flex; justify-content: center; padding: 0 12px 12px;
   font: 12.5px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -49,11 +41,14 @@
   pointer-events: none;
 }
 .hh-label {
-  display: flex; align-items: center; gap: 8px; flex: none; max-width: 160px;
-  padding-right: 10px; border-right: 1px solid var(--hh-edge);
-  font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px;
+  flex: none; max-width: 170px; height: 30px; padding: 0 12px 0 8px; margin-right: 2px;
+  border-radius: 10px; cursor: pointer; font-weight: 600; white-space: nowrap;
+  transition: background-color 120ms;
 }
-.hh-label > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.hh-label:hover { background: var(--hh-chip-hover); }
+.hh-label-text { overflow: hidden; text-overflow: ellipsis; }
+.hh-label + .hh-tabs { border-left: 1px solid var(--hh-edge); }
 .hh-dot {
   width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--hh-group);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--hh-group) 24%, transparent);
@@ -65,11 +60,14 @@
   -webkit-mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
   mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
 }
+/* Chips shrink to fit (down to an icon and a few letters) before the strip scrolls. */
 .hh-list {
-  display: flex; gap: 4px; width: max-content; margin: 0; padding: 0 14px; list-style: none;
+  display: flex; gap: 4px; width: 100%; box-sizing: border-box; margin: 0; padding: 0 14px;
+  list-style: none;
 }
 .hh-chip {
-  position: relative; display: flex; align-items: center; flex: none; height: 32px;
+  position: relative; display: flex; align-items: center; flex: 0 1 auto; min-width: 96px;
+  height: 32px;
   border-radius: 10px; background: var(--hh-chip); transition: background-color 120ms;
 }
 .hh-chip:hover { background: var(--hh-chip-hover); }
@@ -84,7 +82,7 @@
 }
 .hh-tab {
   all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 8px;
-  min-width: 0; height: 100%; padding: 0 4px 0 10px; border-radius: 10px; cursor: pointer;
+  flex: 1 1 auto; min-width: 0; height: 100%; padding: 0 4px 0 10px; border-radius: 10px; cursor: pointer;
 }
 .hh-tab[aria-current='page'] { font-weight: 500; }
 .hh-title { max-width: 24ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -116,7 +114,7 @@
   box-shadow: inset 0 1px 0 var(--hh-highlight), 0 8px 24px -10px rgb(0 0 0 / 0.35);
   font-weight: 600; font-variant-numeric: tabular-nums;
 }
-.hh-tab:focus-visible, .hh-btn:focus-visible, .hh-pill:focus-visible {
+.hh-tab:focus-visible, .hh-btn:focus-visible, .hh-pill:focus-visible, .hh-label:focus-visible {
   outline: 2px solid var(--hh-focus); outline-offset: 1px;
 }
 /* Solid surface where blur is unavailable or the user asks for less transparency. */
@@ -128,14 +126,8 @@
 }
 /* Narrow windows: keep the colour dot, drop the group name. */
 @media (max-width: 520px) {
-  .hh-label { padding-right: 6px; }
-  .hh-label > span:last-child { display: none; }
+  .hh-label { padding: 0 8px; }
+  .hh-label-text { display: none; }
 }
-/* On the host, which lives for the whole page: animates the first appearance only, never the
-   re-render that each snapshot triggers. */
-@media (prefers-reduced-motion: no-preference) {
-  :host { animation: hh-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-}
-@keyframes hh-in { from { transform: translateY(16px); opacity: 0; } }
 `;
 })();

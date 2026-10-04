@@ -9,6 +9,7 @@
     mount.addEventListener('mousedown', onMouseDown);
     mount.addEventListener('auxclick', (e) => onAuxClick(e, handlers));
     mount.addEventListener('keydown', (e) => onKeyDown(e, handlers));
+    mount.addEventListener('wheel', onWheel, { passive: false });
     // Sites bind shortcuts on keyup/keypress too; none of the bar's keystrokes should reach them.
     mount.addEventListener('keyup', stop);
     mount.addEventListener('keypress', stop);
@@ -40,6 +41,19 @@
     else if (action === 'close') h.onClose(tabIdOf(el));
     else if (action === 'new') h.onNew();
     else if (action === 'collapse' || action === 'expand') h.onToggleCollapse();
+  }
+
+  /**
+   * Mouse wheels scroll vertically; turn that into sideways scrolling of the tab strip so tabs
+   * past the edge are reachable without a trackpad. Horizontal gestures stay native.
+   * @param {WheelEvent} event
+   */
+  function onWheel(event) {
+    const strip = closest(event, '.hh-tabs');
+    if (!strip || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+    if (strip.scrollWidth <= strip.clientWidth) return;
+    strip.scrollLeft += event.deltaY;
+    event.preventDefault(); // keep the page underneath from scrolling too
   }
 
   /**
