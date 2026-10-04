@@ -6,6 +6,8 @@ tab strip.
 
 ## Install (unpacked)
 
+Requires Chrome 123 or later.
+
 1. `chrome://extensions` → enable **Developer mode**.
 2. **Load unpacked** → select this folder.
 

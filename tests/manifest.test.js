@@ -26,6 +26,10 @@ describe('manifest.json', () => {
     expect(manifest.content_security_policy).toBeUndefined();
   });
 
+  it('requires Chrome 123+ for CSS light-dark()', () => {
+    expect(manifest.minimum_chrome_version).toBe('123');
+  });
+
   it('runs a module service worker', () => {
     expect(manifest.background).toEqual({
       service_worker: 'background/service-worker.js',

@@ -3,7 +3,7 @@
   "name": "Hover Helper",
   "version": "0.1.0",
   "description": "A horizontal quick-switch bar for the tabs in your current Chrome tab group.",
-  "minimum_chrome_version": "116",
+  "minimum_chrome_version": "123",
   "permissions": ["tabs", "tabGroups", "storage", "scripting", "favicon"],
   "host_permissions": ["<all_urls>"],
   "background": {

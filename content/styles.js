@@ -13,19 +13,19 @@
   width: auto; height: auto; margin: 0; padding: 0; border: 0; overflow: visible;
   background: transparent; color: initial; pointer-events: none;
 }
+/* Tokens stay unregistered so each light-dark() resolves where it is used, against that
+   element's color-scheme. :host's all: initial keeps the page's color-scheme out. */
 .hh-root {
-  color: var(--hh-fg);
   font: 12px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --hh-bg: #ffffff; --hh-fg: #202124; --hh-muted: #5f6368; --hh-border: #dadce0;
-  --hh-chip: #f1f3f4; --hh-chip-hover: #e8eaed; --hh-active: #d3e3fd; --hh-focus: #0b57d0;
+  --hh-bg: light-dark(#ffffff, #202124); --hh-fg: light-dark(#202124, #e8eaed);
+  --hh-muted: light-dark(#5f6368, #9aa0a6); --hh-border: light-dark(#dadce0, #3c4043);
+  --hh-chip: light-dark(#f1f3f4, #2d2e30); --hh-chip-hover: light-dark(#e8eaed, #3c4043);
+  --hh-active: light-dark(#d3e3fd, #394457); --hh-focus: light-dark(#0b57d0, #a8c7fa);
 }
-@media (prefers-color-scheme: dark) {
-  .hh-root {
-    --hh-bg: #202124; --hh-fg: #e8eaed; --hh-muted: #9aa0a6; --hh-border: #3c4043;
-    --hh-chip: #2d2e30; --hh-chip-hover: #3c4043; --hh-active: #394457; --hh-focus: #a8c7fa;
-  }
-}
+/* color-scheme goes on the painted surfaces (they have a background), and color is set there
+   too: an inherited light-dark() colour would arrive already resolved. */
 .hh-bar {
+  color-scheme: light dark; color: var(--hh-fg);
   pointer-events: auto; box-sizing: border-box; display: flex; align-items: center; gap: 6px;
   height: 32px; padding: 0 8px; background: var(--hh-bg);
   border-top: 1px solid var(--hh-border); box-shadow: 0 -1px 4px rgb(0 0 0 / 0.08);
@@ -65,8 +65,8 @@
   visibility: visible;
 }
 .hh-pill {
-  all: unset; pointer-events: auto; position: fixed; right: 12px; bottom: 12px;
-  display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  all: unset; color-scheme: light dark; pointer-events: auto;
+  position: fixed; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
   background: var(--hh-bg); color: var(--hh-fg); border: 1px solid var(--hh-border);
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.2); cursor: pointer; font-weight: 600;
 }

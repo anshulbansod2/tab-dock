@@ -163,7 +163,19 @@ describe('render (focus)', () => {
 
 describe('styles', () => {
   it('defines light and dark tokens and a visible focus ring', () => {
-    expect(ns.styles).toContain('prefers-color-scheme: dark');
+    expect(ns.styles).toContain('--hh-bg: light-dark(#ffffff, #202124)');
+    expect(ns.styles).not.toContain('prefers-color-scheme'); // one token set, no duplicate block
     expect(ns.styles).toContain(':focus-visible');
+  });
+
+  it('opts the painted surfaces into light and dark, re-resolving their text colour', () => {
+    // color-scheme belongs on elements with a background; color is re-specified there because
+    // an inherited light-dark() colour would arrive already resolved.
+    for (const surface of ['hh-bar', 'hh-pill']) {
+      const rule = ns.styles.match(new RegExp(`\\.${surface}\\s*\\{([^}]*)\\}`))[1];
+      expect(rule).toMatch(/color-scheme:\s*light dark/);
+      expect(rule).toMatch(/background:\s*var\(--hh-bg\)/);
+      expect(rule).toMatch(/(^|[\s;])color:\s*var\(--hh-fg\)/);
+    }
   });
 });
