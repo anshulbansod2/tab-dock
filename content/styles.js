@@ -73,8 +73,10 @@
 .hh-tab:focus-visible, .hh-btn:focus-visible, .hh-pill:focus-visible {
   outline: 2px solid var(--hh-focus); outline-offset: 1px;
 }
+/* On the host, which lives for the whole page: animates the first appearance only, never the
+   re-render that each snapshot triggers. */
 @media (prefers-reduced-motion: no-preference) {
-  .hh-bar { animation: hh-in 120ms ease-out; }
+  :host { animation: hh-in 120ms ease-out; }
 }
 @keyframes hh-in { from { transform: translateY(100%); } }
 `;

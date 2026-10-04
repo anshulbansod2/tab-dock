@@ -246,29 +246,18 @@ describe('mountBar', () => {
     );
   });
 
-  it('frees its DOM and snapshot while the page is hidden, repainting when shown', async () => {
+  it('keeps its bar on screen while hidden and refreshes it in place when shown', async () => {
     await settle();
     setVisibility('hidden');
-    expect(q('.hh-root')).toBeNull();
-    storageEvents.emit({ [KEY]: { newValue: false } }, 'local'); // must not repaint stale data
     await settle();
-    expect(q('.hh-root')).toBeNull();
+    expect(q('.hh-bar')).not.toBeNull(); // no empty gap when the user switches back
+    const three = { ...snapshot, tabs: [...snapshot.tabs, { ...snapshot.tabs[1], id: 3 }] };
+    runtime.sendMessage.mockImplementation(async (msg) =>
+      msg.type === 'hello' ? three : undefined,
+    );
     setVisibility('visible');
-    await settle(); // shown again → asks for a fresh snapshot
-    expect(q('.hh-bar')).not.toBeNull();
-    push();
     await settle();
-    expect(q('.hh-bar')).not.toBeNull();
-  });
-
-  it('drops a pending frame when the page is hidden', async () => {
-    await settle();
-    const render = vi.spyOn(ns, 'render');
-    push();
-    setVisibility('hidden');
-    await settle();
-    expect(render).not.toHaveBeenCalled();
-    expect(q('.hh-root')).toBeNull();
+    expect(shadow().querySelectorAll('.hh-tab')).toHaveLength(3);
   });
 
   it('drops a pending frame on unmount', async () => {

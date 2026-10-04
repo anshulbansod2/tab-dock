@@ -16,14 +16,9 @@
     shadow.append(mount);
     const view = createView(mount);
 
-    // Hidden tabs keep no bar DOM or snapshot; a fresh one arrives when the page is shown.
-    const onVisibility = () => {
-      if (doc.visibilityState !== 'visible') view.release();
-    };
     const unmount = () => {
       view.dispose();
       connection.stop();
-      doc.removeEventListener('visibilitychange', onVisibility);
       host.remove();
     };
     const connection = ns.createConnection({
@@ -41,7 +36,6 @@
     });
     void syncCollapsed(storage, storageEvents, view.setCollapsed);
 
-    doc.addEventListener('visibilitychange', onVisibility);
     doc.documentElement.append(host);
     showInTopLayer(host);
     connection.start();
@@ -90,12 +84,6 @@
         schedule();
       },
       isCollapsed: () => collapsed === true,
-      /** Drops data and any pending paint so a hidden page never shows a stale frame. */
-      release() {
-        cancel();
-        snapshot = null;
-        mount.replaceChildren();
-      },
       dispose: cancel,
     };
   }

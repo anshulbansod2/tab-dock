@@ -16,10 +16,30 @@
     const root = document.createElement('div');
     root.className = 'hh-root';
     root.append(view.collapsed ? ns.dom.buildPill(view) : ns.dom.buildBar(view));
+    reuseFavicons(mount, root);
     mount.replaceChildren(root);
     restoreFocus(mount, focus);
     if (!view.collapsed) restoreScroll(mount, previousScroll);
   };
+
+  /**
+   * Moves already-decoded favicon <img>s from the previous render into the new tree when the
+   * tab and image are unchanged, so re-renders never blank and re-decode the icons.
+   * @param {HTMLElement} mount - previous render
+   * @param {HTMLElement} next - new tree, not yet attached
+   */
+  function reuseFavicons(mount, next) {
+    /** @param {Element} img */
+    const keyOf = (img) =>
+      `${img.closest('[data-tab-id]')?.getAttribute('data-tab-id')}|${img.getAttribute('src')}`;
+    const previous = new Map(
+      [...mount.querySelectorAll('img.hh-favicon')].map((img) => [keyOf(img), img]),
+    );
+    for (const img of next.querySelectorAll('img.hh-favicon')) {
+      const old = previous.get(keyOf(img));
+      if (old) img.replaceWith(old);
+    }
+  }
 
   /**
    * @param {HTMLElement} mount

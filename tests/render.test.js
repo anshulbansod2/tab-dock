@@ -161,7 +161,32 @@ describe('render (focus)', () => {
   });
 });
 
+describe('render (stability)', () => {
+  const favicon = (id) => mount.querySelector(`[data-tab-id="${id}"] img.hh-favicon`);
+
+  it('reuses a tab’s decoded favicon across re-renders so icons never flicker', () => {
+    ns.render(mount, { snapshot: grouped, collapsed: false });
+    const before = favicon(1);
+    ns.render(mount, { snapshot: grouped, collapsed: false });
+    expect(favicon(1)).toBe(before);
+  });
+
+  it('swaps the favicon when the tab’s icon changes', () => {
+    ns.render(mount, { snapshot: grouped, collapsed: false });
+    const before = favicon(1);
+    const changed = { ...grouped, tabs: [tab(1, { favIconUrl: 'data:image/png;base64,NEW' })] };
+    ns.render(mount, { snapshot: changed, collapsed: false });
+    expect(favicon(1)).not.toBe(before);
+    expect(favicon(1).getAttribute('src')).toBe('data:image/png;base64,NEW');
+  });
+});
+
 describe('styles', () => {
+  it('animates only the bar’s first appearance, not every re-render', () => {
+    expect(ns.styles).not.toMatch(/\.hh-bar\s*\{[^}]*animation/);
+    expect(ns.styles).toMatch(/:host\s*\{[^}]*animation/);
+  });
+
   it('defines light and dark tokens and a visible focus ring', () => {
     expect(ns.styles).toContain('--hh-bg: light-dark(#ffffff, #202124)');
     expect(ns.styles).not.toContain('prefers-color-scheme'); // one token set, no duplicate block
