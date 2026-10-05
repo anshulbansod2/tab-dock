@@ -40,23 +40,18 @@
     const shadow = host.attachShadow({ mode: shadowMode });
     applyStyles(shadow, doc);
     const mount = doc.createElement('div');
-    shadow.append(mount);
+    const layer = doc.createElement('div'); // menus and drop targets, outside the re-rendered tree
+    layer.className = 'hh-layer';
+    shadow.append(mount, layer);
     const view = createView(mount);
+    /** @param {ClientMessage} message */
+    const send = (message) => connection.send(message);
+    const win = doc.defaultView ?? window;
 
-    const drag = ns.bindDrag({
-      host,
-      mount,
-      win: doc.defaultView ?? window,
-      storage,
-      storageEvents,
-    });
-    const reorder = ns.bindReorder(mount, {
-      onMove: (tabId, toIndex) => connection.send({ type: MSG.MOVE, tabId, toIndex }),
-      onDragStart: () => view.hold(true),
-      onDragEnd: () => view.hold(false),
-    });
+    const drag = ns.bindDrag({ host, mount, win, storage, storageEvents });
+    const moves = bindTabMoves({ mount, layer, win, view, send });
     const unmount = () => {
-      reorder.dispose();
+      moves.dispose();
       drag.dispose();
       view.dispose();
       connection.stop();
@@ -69,10 +64,11 @@
       onOrphaned: unmount,
     });
     ns.bindEvents(mount, {
-      onActivate: (tabId) => connection.send({ type: MSG.ACTIVATE, tabId }),
-      onClose: (tabId) => connection.send({ type: MSG.CLOSE, tabId }),
-      onNew: () => connection.send({ type: MSG.NEW }),
-      onMove: (tabId, toIndex) => connection.send({ type: MSG.MOVE, tabId, toIndex }),
+      onActivate: (tabId) => send({ type: MSG.ACTIVATE, tabId }),
+      onClose: (tabId) => send({ type: MSG.CLOSE, tabId }),
+      onNew: () => send({ type: MSG.NEW }),
+      onMove: moves.onMove,
+      onMenu: moves.onMenu,
       onToggleCollapse: () =>
         void persistCollapsed(storage, !view.isCollapsed(), view.setCollapsed),
     });
@@ -84,6 +80,51 @@
     connection.start();
     return { host, connection, unmount };
   };
+
+  /**
+   * Reordering by drag, and moving tabs between groups by the tab menu or by lifting a chip
+   * onto a group target.
+   * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window,
+   *   view: ReturnType<typeof createView>, send: (message: ClientMessage) => void }} deps
+   */
+  function bindTabMoves({ mount, layer, win, view, send }) {
+    const menu = ns.createGroupMenu({ layer, win, send });
+    const drop = ns.createGroupDrop({ layer });
+    /** @param {number} tabId @param {number} toIndex */
+    const onMove = (tabId, toIndex) => send({ type: MSG.MOVE, tabId, toIndex });
+    const reorder = ns.bindReorder(mount, {
+      onMove,
+      onDragStart: () => {
+        menu.close();
+        view.hold(true);
+      },
+      onDragEnd: () => view.hold(false),
+      onLift: (tabId) => {
+        const snapshot = view.current();
+        const dock = mount.querySelector('.hh-bar')?.getBoundingClientRect();
+        const chip = mount.querySelector(`.hh-tab[data-tab-id="${tabId}"]`)?.closest('.hh-chip');
+        const ghost = chip ? /** @type {HTMLElement} */ (chip.cloneNode(true)) : undefined;
+        ghost?.classList.remove('hh-chip--dragging', 'hh-chip--lifted');
+        if (snapshot && dock) drop.show({ snapshot, tabId, dock, ghost });
+      },
+      onPick: drop.pick,
+      onLower: drop.hide,
+      onDrop: send,
+    });
+    return {
+      onMove,
+      /** @type {BarHandlers['onMenu']} */
+      onMenu(tabId, point, tab) {
+        const snapshot = view.current();
+        if (snapshot) menu.open({ tabId, point, snapshot, returnFocus: tab });
+      },
+      dispose() {
+        reorder.dispose();
+        menu.dispose();
+        drop.hide();
+      },
+    };
+  }
 
   /**
    * Holds the latest snapshot and collapsed flag; paints only once both are known so the bar
@@ -135,6 +176,7 @@
         schedule();
       },
       isCollapsed: () => collapsed === true,
+      current: () => snapshot,
       /** @param {boolean} next */
       hold(next) {
         held = next;

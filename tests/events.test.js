@@ -29,6 +29,7 @@ beforeEach(() => {
     onNew: vi.fn(),
     onToggleCollapse: vi.fn(),
     onMove: vi.fn(),
+    onMenu: vi.fn(),
   };
   ns.bindEvents(mount, handlers);
   ns.render(mount, { snapshot, collapsed: false });
@@ -49,6 +50,23 @@ const key = (target, k, modifiers = {}) => {
 };
 
 describe('mouse', () => {
+  it('opens the tab menu on right-click, instead of the page menu', () => {
+    const event = new MouseEvent('contextmenu', {
+      clientX: 40,
+      clientY: 600,
+      bubbles: true,
+      cancelable: true,
+    });
+    tab(3).querySelector('.hh-title').dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(handlers.onMenu).toHaveBeenCalledWith(3, { x: 40, y: 600 }, tab(3));
+  });
+
+  it('leaves right-clicks elsewhere on the dock alone', () => {
+    q('.hh-label').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+    expect(handlers.onMenu).not.toHaveBeenCalled();
+  });
+
   it('activates a tab on click (including on its title)', () => {
     tab(3).querySelector('.hh-title').click();
     expect(handlers.onActivate).toHaveBeenCalledWith(3);
@@ -168,6 +186,15 @@ describe('keyboard', () => {
     expect(shadow.activeElement).toBe(tab(1));
     key(tab(1), 'End');
     expect(shadow.activeElement).toBe(tab(3));
+  });
+
+  it.each([
+    ['the menu key', 'ContextMenu', {}],
+    ['Shift+F10', 'F10', { shiftKey: true }],
+  ])('opens the tab menu with %s', (_name, k, modifiers) => {
+    tab(2).getBoundingClientRect = () => ({ left: 100, top: 700, width: 80 });
+    expect(key(tab(2), k, modifiers).defaultPrevented).toBe(true);
+    expect(handlers.onMenu).toHaveBeenCalledWith(2, { x: 100, y: 700 }, tab(2));
   });
 
   it('moves the focused tab with Alt+Shift+arrows, never past either end', () => {

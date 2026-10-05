@@ -1,10 +1,14 @@
 // @ts-check
 // Drag a tab chip sideways to reorder the group's tabs. The other chips slide aside while
 // dragging; dropping reorders the chips at once and asks the background to move the real tab.
+// Pulling the chip well above the dock lifts it: group targets appear, and dropping on one
+// moves the tab to that group instead.
 (() => {
   const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const DRAG_THRESHOLD_PX = 5;
+  const LIFT_PX = 40; // this far above where the press started, the chip leaves the strip
   const DRAGGING = 'hh-chip--dragging';
+  const LIFTED = 'hh-chip--lifted';
 
   /**
    * @typedef {object} ChipDrag
@@ -15,10 +19,14 @@
    * @property {number} from - the dragged chip's position
    * @property {number} to - where it would land now
    * @property {number} startX
+   * @property {number} startY
    * @property {boolean} moved
+   * @property {boolean} lifted - showing group targets instead of reordering
+   * @property {ClientMessage | null} picked - the group target under the pointer
    */
 
-  ns.bindReorder = (mount, { onMove, onDragStart, onDragEnd }) => {
+  ns.bindReorder = (mount, callbacks) => {
+    const { onMove, onDragStart, onDragEnd } = callbacks;
     /** @type {ChipDrag | null} */
     let drag = null;
     let swallowClick = false;
@@ -35,7 +43,11 @@
       const from = chips.indexOf(chip);
       const tabId = Number(tab.dataset.tabId);
       const boxes = chips.map((c) => c.getBoundingClientRect());
-      drag = { chip, tabId, chips, boxes, from, to: from, startX: event.clientX, moved: false };
+      drag = {
+        ...{ chip, tabId, chips, boxes, from, to: from },
+        ...{ startX: event.clientX, startY: event.clientY },
+        ...{ moved: false, lifted: false, picked: null },
+      };
       // Capture now: the first real move usually lands off the chip.
       if (event.pointerId !== undefined) tab.setPointerCapture?.(event.pointerId);
     }
@@ -44,32 +56,55 @@
     function onPointerMove(event) {
       if (!drag) return;
       const dx = event.clientX - drag.startX;
-      if (!drag.moved && Math.abs(dx) < DRAG_THRESHOLD_PX) return;
+      const dy = event.clientY - drag.startY; // negative is upwards
+      if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
       if (!drag.moved) {
         drag.moved = true;
         drag.chip.classList.add(DRAGGING);
         onDragStart();
       }
+      setLifted(drag, dy < -LIFT_PX);
+      if (drag.lifted) {
+        drag.picked = callbacks.onPick(event.clientX, event.clientY);
+        for (const chip of drag.chips) chip.style.removeProperty('transform');
+        return;
+      }
       drag.to = landingIndex(drag, dx);
       paintShifts(drag, dx);
     }
 
+    /**
+     * @param {ChipDrag} drag
+     * @param {boolean} lifted
+     */
+    function setLifted(drag, lifted) {
+      if (lifted === drag.lifted) return;
+      drag.lifted = lifted;
+      drag.picked = null;
+      drag.to = drag.from;
+      drag.chip.classList.toggle(LIFTED, lifted);
+      if (lifted) callbacks.onLift(drag.tabId);
+      else callbacks.onLower();
+    }
+
     function onUp() {
       if (!drag) return;
-      const { moved, from, to, tabId } = drag;
+      const { moved, from, to, tabId, picked } = drag;
       finish();
       if (!moved) return;
       swallowClick = true;
-      if (to !== from) {
+      if (picked) callbacks.onDrop(picked);
+      else if (to !== from) {
         placeChip(mount, from, to);
         onMove(tabId, to);
       }
     }
 
     function finish() {
+      if (drag?.lifted) callbacks.onLower();
       if (drag?.moved) {
         for (const chip of drag.chips) chip.style.removeProperty('transform');
-        drag.chip.classList.remove(DRAGGING);
+        drag.chip.classList.remove(DRAGGING, LIFTED);
         onDragEnd();
       }
       drag = null;

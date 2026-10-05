@@ -13,11 +13,17 @@ const ORDER = [
   'connection',
   'drag',
   'reorder',
+  'menu',
+  'dropzone',
   'bar',
 ];
 const KEY = 'tabDock.collapsed';
 const snapshot = {
   group: { id: 10, title: 'Work', color: 'blue' },
+  groups: [
+    { id: 10, title: 'Work', color: 'blue' },
+    { id: 20, title: 'Read', color: 'red' },
+  ],
   tabs: [
     { id: 1, title: 'One', favIconUrl: null, active: true },
     { id: 2, title: 'Two', favIconUrl: null, active: false },
@@ -219,6 +225,45 @@ describe('mountBar', () => {
     mounted.unmount();
     expect(dispose).toHaveBeenCalledOnce();
     mounted = null;
+  });
+
+  it('opens the tab menu on right-click and sends the choice', async () => {
+    await settle();
+    q('.hh-tab[data-tab-id="2"]').dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    const item = [...shadow().querySelectorAll('[role="menuitem"]')].find(
+      (el) => el.textContent === 'Read',
+    );
+    item.click();
+    expect(actions()).toEqual([{ type: 'regroup', tabId: 2, groupId: 20 }]);
+    expect(shadow().querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('shows group targets for a lifted chip and sends the drop', async () => {
+    mounted.unmount();
+    let callbacks;
+    vi.spyOn(ns, 'bindReorder').mockImplementation((_mount, given) => {
+      callbacks = given;
+      return { dispose: vi.fn() };
+    });
+    mounted = mount();
+    await settle();
+    callbacks.onLift(2);
+    expect(shadow().querySelector('.hh-drop-ghost .hh-title').textContent).toBe('Two');
+    const targets = shadow().querySelectorAll('.hh-drop-target');
+    expect([...targets].map((t) => t.getAttribute('aria-label'))).toEqual([
+      'Read',
+      'Ungrouped',
+      'New group',
+    ]);
+    const at = (el) => parseFloat(el.style.getPropertyValue('left')) + 15;
+    const y = parseFloat(targets[0].style.getPropertyValue('top')) + 15;
+    const picked = callbacks.onPick(at(targets[0]), y);
+    callbacks.onDrop(picked);
+    callbacks.onLower();
+    expect(actions()).toEqual([{ type: 'regroup', tabId: 2, groupId: 20 }]);
+    expect(shadow().querySelector('.hh-drop-target')).toBeNull();
   });
 
   it('is not blocked by a page element that reuses our old id', () => {

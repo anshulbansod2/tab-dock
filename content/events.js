@@ -10,6 +10,7 @@
     mount.addEventListener('auxclick', (e) => onAuxClick(e, handlers));
     mount.addEventListener('keydown', (e) => onKeyDown(e, handlers));
     mount.addEventListener('wheel', onWheel, { passive: false });
+    mount.addEventListener('contextmenu', (e) => onContextMenu(e, handlers));
     // Sites bind shortcuts on keyup/keypress too; none of the bar's keystrokes should reach them.
     mount.addEventListener('keyup', stop);
     mount.addEventListener('keypress', stop);
@@ -77,6 +78,22 @@
   }
 
   /**
+   * Right-click on a tab chip opens the dock's tab menu in place of the page's.
+   * @param {MouseEvent} event
+   * @param {BarHandlers} h
+   */
+  function onContextMenu(event, h) {
+    const tab = closest(event, '.hh-chip')?.querySelector('.hh-tab');
+    if (!(tab instanceof HTMLElement)) return;
+    event.preventDefault();
+    h.onMenu(tabIdOf(tab), { x: event.clientX, y: event.clientY }, tab);
+  }
+
+  /** @param {KeyboardEvent} event */
+  const isMenuKey = (event) =>
+    event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
+
+  /**
    * @param {KeyboardEvent} event
    * @param {BarHandlers} h
    */
@@ -87,6 +104,12 @@
     if (!(tab instanceof HTMLElement)) return;
     if (event.altKey && event.shiftKey) {
       moveTab(event, tab, h);
+      return;
+    }
+    if (isMenuKey(event)) {
+      event.preventDefault();
+      const box = tab.getBoundingClientRect();
+      h.onMenu(tabIdOf(tab), { x: box.left, y: box.top }, tab);
       return;
     }
     // Enter/Space are left to the native <button>, which turns them into one click.

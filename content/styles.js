@@ -8,8 +8,8 @@
   ns.styles = `
 /* Tokens stay unregistered so each light-dark() resolves where it is used, against that
    element's color-scheme. The host's inline all: initial (bar.js) keeps the page's out. */
-.hh-root {
-  display: flex; justify-content: center; padding: 0 12px 12px;
+.hh-root { display: flex; justify-content: center; padding: 0 12px 12px; }
+.hh-root, .hh-layer {
   font: 12.5px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --hh-glass: light-dark(rgb(255 255 255 / 0.74), rgb(30 31 34 / 0.72));
   --hh-solid: light-dark(#ffffff, #1e1f22);
@@ -81,6 +81,14 @@
   z-index: 1; transition: none; cursor: grabbing; background: var(--hh-current);
   box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45), inset 0 0 0 1px var(--hh-edge);
 }
+/* Lifted toward a group: the chip stays put, dimmed; a copy follows the pointer. */
+.hh-chip--lifted { opacity: 0.35; }
+.hh-drop-ghost {
+  position: fixed; pointer-events: none; transform: translate(-50%, 20px) rotate(-2deg);
+  width: 160px; list-style: none; color-scheme: light dark; color: var(--hh-fg);
+  background: var(--hh-solid); box-shadow: 0 12px 28px -8px rgb(0 0 0 / 0.5);
+}
+.hh-drop-ghost .hh-close { visibility: hidden; }
 @media (prefers-reduced-motion: reduce) { .hh-chip { transition: background-color 120ms; } }
 .hh-chip:has(> [aria-current='page']) {
   background: var(--hh-current);
@@ -128,12 +136,50 @@
 .hh-tab:focus-visible, .hh-btn:focus-visible, .hh-pill:focus-visible, .hh-label:focus-visible {
   outline: 2px solid var(--hh-focus); outline-offset: 1px;
 }
+/* Menus and drop targets live in a layer over the whole window; only their own boxes take
+   pointer events. */
+.hh-layer { position: fixed; inset: 0; pointer-events: none; }
+.hh-backdrop { position: fixed; inset: 0; pointer-events: auto; }
+.hh-menu {
+  position: fixed; pointer-events: auto; display: flex; flex-direction: column; gap: 2px;
+  min-width: 190px; max-width: 280px; padding: 6px; box-sizing: border-box; border-radius: 12px;
+  color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
+  border: 1px solid var(--hh-edge); backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: inset 0 1px 0 var(--hh-highlight), 0 16px 40px -12px rgb(0 0 0 / 0.45);
+}
+.hh-menu-item {
+  all: unset; display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 10px;
+  border-radius: 8px; cursor: pointer; white-space: nowrap; overflow: hidden;
+}
+.hh-menu-item > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.hh-menu-item:hover, .hh-menu-item:focus-visible { background: var(--hh-chip-hover); }
+.hh-menu-item:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: -2px; }
+.hh-menu-item:nth-last-child(1) { margin-top: 3px; border-top: 1px solid var(--hh-edge); }
+.hh-drop-target {
+  position: fixed; width: 30px; height: 30px; border-radius: 50%; box-sizing: border-box;
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 16px;
+  background: var(--hh-group); border: 2px solid rgb(255 255 255 / 0.85);
+  box-shadow: 0 6px 16px -6px rgb(0 0 0 / 0.5); transition: transform 120ms, box-shadow 120ms;
+}
+.hh-drop-target--hot {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--hh-group) 35%, transparent),
+    0 8px 20px -6px rgb(0 0 0 / 0.5);
+}
+.hh-drop-label {
+  position: fixed; transform: translate(-50%, -100%); padding: 4px 10px; border-radius: 8px;
+  color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
+  border: 1px solid var(--hh-edge); backdrop-filter: blur(20px); white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) { .hh-drop-target { transition: none; } }
 /* Solid surface where blur is unavailable or the user asks for less transparency. */
 @supports not (backdrop-filter: blur(1px)) {
-  .hh-bar, .hh-pill { background: var(--hh-solid); }
+  .hh-bar, .hh-pill, .hh-menu, .hh-drop-label { background: var(--hh-solid); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .hh-bar, .hh-pill { background: var(--hh-solid); backdrop-filter: none; }
+  .hh-bar, .hh-pill, .hh-menu, .hh-drop-label {
+    background: var(--hh-solid); backdrop-filter: none;
+  }
 }
 /* Narrow windows: keep the colour dot, drop the group name. */
 @media (max-width: 520px) {

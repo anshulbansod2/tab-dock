@@ -35,6 +35,35 @@ interface BarHandlers {
   onNew(): void;
   onToggleCollapse(): void;
   onMove(tabId: number, toIndex: number): void;
+  onMenu(tabId: number, point: { x: number; y: number }, tab: HTMLElement): void;
+}
+
+interface MenuOpenOptions {
+  tabId: number;
+  /** Where the menu was asked for (pointer, or the focused chip's top edge). */
+  point: { x: number; y: number };
+  snapshot: Snapshot;
+  /** Focused again when the menu closes from the keyboard or after a choice. */
+  returnFocus: HTMLElement | null;
+}
+
+interface GroupMenu {
+  open(options: MenuOpenOptions): void;
+  close(): void;
+  isOpen(): boolean;
+  dispose(): void;
+}
+
+interface GroupDrop {
+  show(options: {
+    snapshot: Snapshot;
+    tabId: number;
+    dock: Pick<DOMRect, 'left' | 'top' | 'width'>;
+    /** A copy of the lifted chip, carried under the pointer. */
+    ghost?: HTMLElement;
+  }): void;
+  pick(x: number, y: number): ClientMessage | null;
+  hide(): void;
 }
 
 interface ReorderCallbacks {
@@ -42,6 +71,13 @@ interface ReorderCallbacks {
   /** A chip drag began: hold re-renders so the dragged chip isn't replaced mid-drag. */
   onDragStart(): void;
   onDragEnd(): void;
+  /** The chip was pulled above the dock: show the group drop targets. */
+  onLift(tabId: number): void;
+  /** The target under the pointer while lifted (highlighting it), or null. */
+  onPick(x: number, y: number): ClientMessage | null;
+  /** Hide the drop targets. */
+  onLower(): void;
+  onDrop(message: ClientMessage): void;
 }
 
 interface Connection {
@@ -108,6 +144,12 @@ interface TabDockNamespace {
   }>;
   bindDrag(options: DragOptions): { dispose(): void };
   bindReorder(mount: HTMLElement, callbacks: ReorderCallbacks): { dispose(): void };
+  createGroupDrop(options: { layer: HTMLElement }): GroupDrop;
+  createGroupMenu(options: {
+    layer: HTMLElement;
+    win: Window;
+    send(message: ClientMessage): void;
+  }): GroupMenu;
   mountBar(options: MountOptions): MountedBar | null;
 }
 

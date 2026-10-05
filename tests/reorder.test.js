@@ -26,7 +26,15 @@ beforeEach(() => {
   host.attachShadow({ mode: 'open' }).append(mount);
   ns.render(mount, { snapshot, collapsed: false });
   layOutChips();
-  callbacks = { onMove: vi.fn(), onDragStart: vi.fn(), onDragEnd: vi.fn() };
+  callbacks = {
+    onMove: vi.fn(),
+    onDragStart: vi.fn(),
+    onDragEnd: vi.fn(),
+    onLift: vi.fn(),
+    onPick: vi.fn(() => null),
+    onLower: vi.fn(),
+    onDrop: vi.fn(),
+  };
   clicks = vi.fn();
   mount.addEventListener('click', clicks); // stands in for bindEvents' activate handler
   reorder = ns.bindReorder(mount, callbacks);
@@ -152,5 +160,61 @@ describe('dragging a tab chip', () => {
     reorder.dispose();
     drag(1, 260);
     expect(callbacks.onMove).not.toHaveBeenCalled();
+  });
+});
+
+describe('lifting a chip off the dock to change its group', () => {
+  const REGROUP = { type: 'regroup', tabId: 2, groupId: 20 };
+
+  function lift(id, y) {
+    let captured = null;
+    tab(id).setPointerCapture = () => (captured = tab(id));
+    const x = chipOf(id).getBoundingClientRect().left + 50;
+    pointer('pointerdown', x, tab(id));
+    pointer('pointermove', x, captured ?? document.body, CHIP.top - 10);
+    pointer('pointermove', x + 8, captured ?? document.body, y);
+    return { x: x + 8, captured };
+  }
+
+  it('shows the group targets once the chip is pulled well above the dock', () => {
+    lift(2, CHIP.top - 60);
+    expect(callbacks.onLift).toHaveBeenCalledWith(2);
+    expect(callbacks.onPick).toHaveBeenLastCalledWith(162, CHIP.top - 60);
+    // The strip clips anything outside it, so a floating copy (the bar's job) follows the
+    // pointer; the chip itself stays put, dimmed, and no reorder preview shows.
+    expect(chipOf(2).classList).toContain('hh-chip--lifted');
+    expect([shift(1), shift(2), shift(3)]).toEqual(['', '', '']);
+  });
+
+  it('a small upward wobble still reorders', () => {
+    lift(2, CHIP.top - 10);
+    expect(callbacks.onLift).not.toHaveBeenCalled();
+  });
+
+  it('dropping on a target moves the tab there instead of reordering', () => {
+    callbacks.onPick.mockReturnValue(REGROUP);
+    const { x, captured } = lift(2, CHIP.top - 60);
+    pointer('pointerup', x, captured, CHIP.top - 60);
+    expect(callbacks.onDrop).toHaveBeenCalledWith(REGROUP);
+    expect(callbacks.onMove).not.toHaveBeenCalled();
+    expect(callbacks.onLower).toHaveBeenCalledOnce();
+    expect(order()).toEqual([1, 2, 3, 4]);
+  });
+
+  it('dropping away from the targets cancels', () => {
+    const { x, captured } = lift(2, CHIP.top - 60);
+    pointer('pointerup', x, captured, CHIP.top - 60);
+    expect(callbacks.onDrop).not.toHaveBeenCalled();
+    expect(callbacks.onMove).not.toHaveBeenCalled();
+    expect(callbacks.onLower).toHaveBeenCalledOnce();
+  });
+
+  it('bringing the chip back down hides the targets and reorders again', () => {
+    const { captured } = lift(2, CHIP.top - 60);
+    pointer('pointermove', 270, captured, CHIP.top + 10);
+    expect(callbacks.onLower).toHaveBeenCalledOnce();
+    expect(chipOf(2).classList).not.toContain('hh-chip--lifted');
+    pointer('pointerup', 270, captured, CHIP.top + 10);
+    expect(callbacks.onMove).toHaveBeenCalledWith(2, 2);
   });
 });
