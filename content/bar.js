@@ -29,6 +29,9 @@
     ['pointer-events', 'none'],
   ]);
 
+  const HEAL_LIMIT = 5;
+  const HEAL_WINDOW_MS = 10_000;
+
   ns.mountBar = ({ doc, runtime, storage, storageEvents, shadowMode }) => {
     const existing = /** @type {HTMLElement[]} */ ([...doc.getElementsByTagName(HOST_TAG)]);
     if (existing.some((el) => el.dataset.instance === ns.instance)) return null; // already mounted
@@ -50,7 +53,9 @@
 
     const drag = ns.bindDrag({ host, mount, win, storage, storageEvents });
     const moves = bindTabMoves({ mount, layer, win, view, send });
+    const guard = guardHost(host, doc);
     const unmount = () => {
+      guard.dispose();
       moves.dispose();
       drag.dispose();
       view.dispose();
@@ -74,12 +79,82 @@
     });
     void syncCollapsed(storage, storageEvents, view.setCollapsed);
 
-    doc.documentElement.append(host);
-    showInTopLayer(host);
+    guard.start(); // attaches the host and shows it in the top layer
     animateEntrance(host);
     connection.start();
     return { host, connection, unmount };
   };
+
+  /**
+   * Some pages tidy up elements they didn't create (removing them, or closing every open
+   * popover), which made the bar vanish until a reload. The bar puts itself back, but at
+   * most HEAL_LIMIT times per HEAL_WINDOW_MS so it never fights a page that insists.
+   * @param {HTMLElement} host
+   * @param {Document} doc
+   */
+  function guardHost(host, doc) {
+    /** @type {number[]} */
+    let heals = [];
+    const allowed = () => {
+      const now = Date.now();
+      heals = heals.filter((t) => now - t < HEAL_WINDOW_MS);
+      if (heals.length >= HEAL_LIMIT) return false;
+      heals.push(now);
+      return true;
+    };
+    const attach = () => {
+      doc.documentElement.append(host);
+      showInTopLayer(host);
+      // Watch the document too, in case the page swaps out <html> itself (re-observing the
+      // same node is a no-op).
+      observer.observe(doc, { childList: true });
+      observer.observe(doc.documentElement, { childList: true });
+    };
+    const observer = new MutationObserver(() => {
+      if (host.isConnected || !allowed()) return;
+      ns.logger.warn('page removed the bar; restoring it');
+      attach();
+    });
+    // After giving up, coming back to the tab is a fresh chance.
+    const onVisible = () => {
+      if (doc.visibilityState !== 'visible' || host.isConnected) return;
+      heals = [];
+      attach();
+    };
+    /** @param {Event} event */
+    const onToggle = (event) => {
+      const closed = /** @type {ToggleEvent} */ (event).newState === 'closed';
+      if (!closed || !host.isConnected || !host.hasAttribute('popover') || isOpen(host)) return;
+      if (!allowed()) return;
+      ns.logger.warn('page closed the bar; reopening it');
+      showInTopLayer(host);
+    };
+    return {
+      start() {
+        attach();
+        host.addEventListener('toggle', onToggle);
+        doc.addEventListener('visibilitychange', onVisible);
+      },
+      dispose() {
+        observer.disconnect();
+        host.removeEventListener('toggle', onToggle);
+        doc.removeEventListener('visibilitychange', onVisible);
+      },
+    };
+  }
+
+  /**
+   * A toggle event can arrive after the bar was already reopened (e.g. the one queued by a
+   * removal that was healed), and reopening an open popover throws.
+   * @param {HTMLElement} host
+   */
+  function isOpen(host) {
+    try {
+      return host.matches(':popover-open');
+    } catch {
+      return false; // engines without the popover API
+    }
+  }
 
   /**
    * Reordering by drag, and moving tabs between groups by the tab menu or by lifting a chip

@@ -141,6 +141,15 @@ describe('mountBar', () => {
       expect(q('.hh-bar')).not.toBeNull();
     });
 
+    it('re-opens itself if the page closes its popover', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      remount();
+      await settle();
+      mounted.host.dispatchEvent(Object.assign(new Event('toggle'), { newState: 'closed' }));
+      expect(showPopover).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledWith('[tab-dock]', 'page closed the bar; reopening it');
+    });
+
     it('falls back to fixed positioning if showPopover throws', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       showPopover.mockImplementationOnce(() => {
@@ -264,6 +273,50 @@ describe('mountBar', () => {
     callbacks.onLower();
     expect(actions()).toEqual([{ type: 'regroup', tabId: 2, groupId: 20 }]);
     expect(shadow().querySelector('.hh-drop-target')).toBeNull();
+  });
+
+  it('puts itself back if the page removes it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await settle();
+    mounted.host.remove();
+    await flushPromises();
+    expect(mounted.host.parentElement).toBe(document.documentElement);
+    expect(q('.hh-bar')).not.toBeNull(); // the same bar, still painted
+    expect(warn).toHaveBeenCalledWith('[tab-dock]', 'page removed the bar; restoring it');
+  });
+
+  it('follows the page when it swaps out <html> itself', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await settle();
+    const old = document.documentElement;
+    const fresh = document.createElement('html');
+    document.replaceChild(fresh, old);
+    await flushPromises();
+    expect(mounted.host.parentElement).toBe(fresh);
+    mounted.host.remove();
+    await flushPromises();
+    expect(mounted.host.parentElement).toBe(fresh); // still watched in the new <html>
+    document.replaceChild(old, fresh);
+  });
+
+  it('stops putting itself back if the page keeps removing it', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    for (let i = 0; i < 10; i += 1) {
+      mounted.host.remove();
+      await flushPromises();
+    }
+    expect(mounted.host.isConnected).toBe(false); // gave up instead of fighting the page
+    setVisibility('hidden');
+    setVisibility('visible'); // coming back to the tab is a fresh chance
+    expect(mounted.host.isConnected).toBe(true);
+  });
+
+  it('stays removed after unmount', async () => {
+    const { host } = mounted;
+    mounted.unmount();
+    mounted = null;
+    await flushPromises();
+    expect(host.isConnected).toBe(false);
   });
 
   it('is not blocked by a page element that reuses our old id', () => {
