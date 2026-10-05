@@ -26,7 +26,6 @@
    */
 
   ns.bindReorder = (mount, callbacks) => {
-    const { onMove, onDragStart, onDragEnd } = callbacks;
     /** @type {ChipDrag | null} */
     let drag = null;
     let swallowClick = false;
@@ -34,57 +33,7 @@
     /** @param {PointerEvent} event */
     function onDown(event) {
       swallowClick = false;
-      const tab = event.target instanceof Element ? event.target.closest('.hh-tab') : null;
-      const chip = tab?.closest('.hh-chip');
-      if (!(tab instanceof HTMLElement) || !(chip instanceof HTMLElement) || event.button !== 0)
-        return;
-      const chips = /** @type {HTMLElement[]} */ ([...mount.querySelectorAll('.hh-chip')]);
-      if (chips.length < 2) return;
-      const from = chips.indexOf(chip);
-      const tabId = Number(tab.dataset.tabId);
-      const boxes = chips.map((c) => c.getBoundingClientRect());
-      drag = {
-        ...{ chip, tabId, chips, boxes, from, to: from },
-        ...{ startX: event.clientX, startY: event.clientY },
-        ...{ moved: false, lifted: false, picked: null },
-      };
-      // Capture now: the first real move usually lands off the chip.
-      if (event.pointerId !== undefined) tab.setPointerCapture?.(event.pointerId);
-    }
-
-    /** @param {PointerEvent} event */
-    function onPointerMove(event) {
-      if (!drag) return;
-      const dx = event.clientX - drag.startX;
-      const dy = event.clientY - drag.startY; // negative is upwards
-      if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-      if (!drag.moved) {
-        drag.moved = true;
-        drag.chip.classList.add(DRAGGING);
-        onDragStart();
-      }
-      setLifted(drag, dy < -LIFT_PX);
-      if (drag.lifted) {
-        drag.picked = callbacks.onPick(event.clientX, event.clientY);
-        for (const chip of drag.chips) chip.style.removeProperty('transform');
-        return;
-      }
-      drag.to = landingIndex(drag, dx);
-      paintShifts(drag, dx);
-    }
-
-    /**
-     * @param {ChipDrag} drag
-     * @param {boolean} lifted
-     */
-    function setLifted(drag, lifted) {
-      if (lifted === drag.lifted) return;
-      drag.lifted = lifted;
-      drag.picked = null;
-      drag.to = drag.from;
-      drag.chip.classList.toggle(LIFTED, lifted);
-      if (lifted) callbacks.onLift(drag.tabId);
-      else callbacks.onLower();
+      drag = startDrag(event, mount);
     }
 
     function onUp() {
@@ -96,7 +45,7 @@
       if (picked) callbacks.onDrop(picked);
       else if (to !== from) {
         placeChip(mount, from, to);
-        onMove(tabId, to);
+        callbacks.onMove(tabId, to);
       }
     }
 
@@ -105,7 +54,7 @@
       if (drag?.moved) {
         for (const chip of drag.chips) chip.style.removeProperty('transform');
         drag.chip.classList.remove(DRAGGING, LIFTED);
-        onDragEnd();
+        callbacks.onDragEnd();
       }
       drag = null;
     }
@@ -118,24 +67,99 @@
       event.preventDefault();
     }
 
-    const listeners = /** @type {const} */ ([
+    const unlisten = listen(mount, [
       ['pointerdown', onDown],
-      ['pointermove', onPointerMove],
+      ['pointermove', (/** @type {PointerEvent} */ e) => drag && advance(drag, e, callbacks)],
       ['pointerup', onUp],
       ['pointercancel', finish],
+      ['click', onClick, true], // capture: runs before activate
     ]);
-    for (const [type, fn] of listeners)
-      mount.addEventListener(type, /** @type {EventListener} */ (fn));
-    mount.addEventListener('click', onClick, true); // capture: runs before activate
     return {
       dispose() {
         finish();
-        for (const [type, fn] of listeners)
-          mount.removeEventListener(type, /** @type {EventListener} */ (fn));
-        mount.removeEventListener('click', onClick, true);
+        unlisten();
       },
     };
   };
+
+  /**
+   * @param {HTMLElement} target
+   * @param {[string, (event: never) => void, boolean?][]} listeners
+   * @returns {() => void} removes them all
+   */
+  function listen(target, listeners) {
+    for (const [type, fn, capture] of listeners)
+      target.addEventListener(type, /** @type {EventListener} */ (fn), capture);
+    return () => {
+      for (const [type, fn, capture] of listeners)
+        target.removeEventListener(type, /** @type {EventListener} */ (fn), capture);
+    };
+  }
+
+  /**
+   * A press on a tab chip (primary button, more than one chip) may start a drag.
+   * @param {PointerEvent} event
+   * @param {HTMLElement} mount
+   * @returns {ChipDrag | null}
+   */
+  function startDrag(event, mount) {
+    const tab = event.target instanceof Element ? event.target.closest('.hh-tab') : null;
+    const chip = tab?.closest('.hh-chip');
+    if (!(tab instanceof HTMLElement) || !(chip instanceof HTMLElement) || event.button !== 0)
+      return null;
+    const chips = /** @type {HTMLElement[]} */ ([...mount.querySelectorAll('.hh-chip')]);
+    if (chips.length < 2) return null;
+    const from = chips.indexOf(chip);
+    const boxes = chips.map((c) => c.getBoundingClientRect());
+    // Capture now: the first real move usually lands off the chip.
+    if (event.pointerId !== undefined) tab.setPointerCapture?.(event.pointerId);
+    return {
+      ...{ chip, tabId: Number(tab.dataset.tabId), chips, boxes, from, to: from },
+      ...{ startX: event.clientX, startY: event.clientY },
+      ...{ moved: false, lifted: false, picked: null },
+    };
+  }
+
+  /**
+   * Follows the pointer: past the threshold the drag starts; above the dock the chip lifts
+   * toward the group targets, otherwise it previews its new place in the strip.
+   * @param {ChipDrag} drag
+   * @param {PointerEvent} event
+   * @param {ReorderCallbacks} callbacks
+   */
+  function advance(drag, event, callbacks) {
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY; // negative is upwards
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      drag.chip.classList.add(DRAGGING);
+      callbacks.onDragStart();
+    }
+    setLifted(drag, dy < -LIFT_PX, callbacks);
+    if (drag.lifted) {
+      drag.picked = callbacks.onPick(event.clientX, event.clientY);
+      for (const chip of drag.chips) chip.style.removeProperty('transform');
+      return;
+    }
+    drag.to = landingIndex(drag, dx);
+    paintShifts(drag, dx);
+  }
+
+  /**
+   * @param {ChipDrag} drag
+   * @param {boolean} lifted
+   * @param {ReorderCallbacks} callbacks
+   */
+  function setLifted(drag, lifted, callbacks) {
+    if (lifted === drag.lifted) return;
+    drag.lifted = lifted;
+    drag.picked = null;
+    drag.to = drag.from;
+    drag.chip.classList.toggle(LIFTED, lifted);
+    if (lifted) callbacks.onLift(drag.tabId);
+    else callbacks.onLower();
+  }
 
   /**
    * Where the dragged chip lands: past every other chip whose midpoint its centre has crossed.

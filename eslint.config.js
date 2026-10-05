@@ -19,6 +19,18 @@ export default [
     },
   },
   {
+    // The team's size limits (functions under 50 lines, files under 400). Content scripts are
+    // IIFE-wrapped, so the wrapper itself is exempt.
+    files: ['background/**/*.js', 'content/**/*.js', 'scripts/**/*.js'],
+    rules: {
+      'max-lines': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
+      'max-lines-per-function': [
+        'error',
+        { max: 50, skipBlankLines: true, skipComments: true, IIFEs: false },
+      ],
+    },
+  },
+  {
     files: ['background/**/*.js'],
     languageOptions: {
       sourceType: 'module',

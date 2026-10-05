@@ -21,21 +21,8 @@
     let orphaned = false;
     const isVisible = () => doc.visibilityState === 'visible';
 
-    /**
-     * @param {ClientMessage} msg
-     * @returns {Promise<unknown>}
-     */
-    async function call(msg) {
-      try {
-        // runtime.id disappears once the extension is reloaded or removed.
-        if (!runtime.id) throw new Error('Extension context invalidated.');
-        return await runtime.sendMessage(msg);
-      } catch (err) {
-        if (!runtime.id || (err instanceof Error && CONTEXT_GONE.test(err.message))) orphan();
-        else ns.logger.warn(`${msg.type} failed`, err);
-        return null;
-      }
-    }
+    /** @param {ClientMessage} msg */
+    const call = (msg) => sendSafely(runtime, msg, orphan);
 
     async function requestSnapshot() {
       if (!running) return;
@@ -86,4 +73,24 @@
 
     return { start, stop, send: (msg) => void call(msg) };
   };
+
+  /**
+   * Sends to the background; a reloaded or removed extension calls `onGone` instead of
+   * throwing, and other failures are logged. Resolves to the reply, or null.
+   * @param {typeof chrome.runtime} runtime
+   * @param {ClientMessage} msg
+   * @param {() => void} onGone
+   * @returns {Promise<unknown>}
+   */
+  async function sendSafely(runtime, msg, onGone) {
+    try {
+      // runtime.id disappears once the extension is reloaded or removed.
+      if (!runtime.id) throw new Error('Extension context invalidated.');
+      return await runtime.sendMessage(msg);
+    } catch (err) {
+      if (!runtime.id || (err instanceof Error && CONTEXT_GONE.test(err.message))) onGone();
+      else ns.logger.warn(`${msg.type} failed`, err);
+      return null;
+    }
+  }
 })();

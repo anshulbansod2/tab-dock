@@ -95,35 +95,17 @@
     const dockBox = () =>
       (mount.querySelector('.hh-bar, .hh-pill') ?? host).getBoundingClientRect();
 
-    /** @param {number} left @param {number} top */
-    function place(left, top) {
-      host.setAttribute('data-placed', '');
-      host.style.setProperty('inset', 'auto', 'important');
-      host.style.setProperty('left', `${left}px`, 'important');
-      host.style.setProperty('top', `${top}px`, 'important');
-    }
-
-    function home() {
-      host.removeAttribute('data-placed');
-      host.style.removeProperty('left');
-      host.style.removeProperty('top');
-      host.style.setProperty('inset', 'auto 0 0 0', 'important');
-    }
+    const place = (/** @type {number} */ left, /** @type {number} */ top) =>
+      placeHost(host, left, top);
 
     function apply() {
-      if (!placement) return home();
+      if (!placement) return homeHost(host);
       const { left, top } = ns.placement.toPixels(placement, dockBox(), viewport());
       return place(left, top);
     }
 
     /** @param {number} left @param {number} top */
-    function isNearHome(left, top) {
-      const box = dockBox();
-      const { width, height } = viewport();
-      const homeLeft = (width - box.width) / 2;
-      const homeTop = height - HOME_GAP_PX - box.height;
-      return Math.hypot(left - homeLeft, top - homeTop) <= SNAP_HOME_PX;
-    }
+    const isNearHome = (left, top) => nearHome({ left, top }, dockBox(), viewport());
 
     const self = {
       apply,
@@ -164,6 +146,38 @@
       dockBox,
     };
     return self;
+  }
+
+  /**
+   * @param {HTMLElement} host
+   * @param {number} left
+   * @param {number} top
+   */
+  function placeHost(host, left, top) {
+    host.setAttribute('data-placed', '');
+    host.style.setProperty('inset', 'auto', 'important');
+    host.style.setProperty('left', `${left}px`, 'important');
+    host.style.setProperty('top', `${top}px`, 'important');
+  }
+
+  /** @param {HTMLElement} host */
+  function homeHost(host) {
+    host.removeAttribute('data-placed');
+    host.style.removeProperty('left');
+    host.style.removeProperty('top');
+    host.style.setProperty('inset', 'auto 0 0 0', 'important');
+  }
+
+  /**
+   * Whether a dock dropped at `point` is close enough to its default bottom-centre spot.
+   * @param {{ left: number, top: number }} point
+   * @param {Box} box
+   * @param {Box} viewport
+   */
+  function nearHome(point, box, viewport) {
+    const homeLeft = (viewport.width - box.width) / 2;
+    const homeTop = viewport.height - HOME_GAP_PX - box.height;
+    return Math.hypot(point.left - homeLeft, point.top - homeTop) <= SNAP_HOME_PX;
   }
 
   /**

@@ -33,15 +33,6 @@ export function createHub({
   /** @type {Map<number, string>} */
   const lastSent = new Map();
 
-  /** @param {number} windowId */
-  async function windowState(windowId) {
-    const [tabs, groups] = await Promise.all([
-      api.tabs.query({ windowId }),
-      api.tabGroups.query({ windowId }),
-    ]);
-    return { tabs, groups };
-  }
-
   /**
    * Snapshot for one bar, in reply to its hello.
    * @param {ClientInfo} client
@@ -49,7 +40,7 @@ export function createHub({
    */
   async function snapshotFor(client) {
     lastSent.delete(client.tabId); // a (re)loaded bar knows nothing yet: never skip its next push
-    const { tabs, groups } = await windowState(client.windowId);
+    const { tabs, groups } = await windowState(api, client.windowId);
     return favicons.inline(buildSnapshot({ tabs, groups, tabId: client.tabId }), tabs);
   }
 
@@ -62,55 +53,11 @@ export function createHub({
    * @param {number} windowId
    */
   async function pushToWindow(windowId) {
-    const { tabs, groups } = await windowState(windowId);
-    /** @type {Map<number, Promise<Snapshot>>} */
-    const perGroup = new Map();
-    const pending = tabs.flatMap((tab) => {
-      if (tab.id === undefined || tab.discarded || !INJECTABLE_URL.test(tab.url ?? '')) return [];
-      const built = buildSnapshot({ tabs, groups, tabId: tab.id });
-      const key = JSON.stringify(built);
-      if (key === lastSent.get(tab.id)) return [];
-      const groupKey = built.group?.id ?? UNGROUPED_ID;
-      if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, tabs));
-      return [{ tab, key, shared: /** @type {Promise<Snapshot>} */ (perGroup.get(groupKey)) }];
-    });
-    await Promise.all(pending.map(({ tab, key, shared }) => pushTo(tab, key, shared)));
-  }
-
-  /**
-   * @param {chrome.tabs.Tab} tab - has an id
-   * @param {string} key - recorded only once the bar has it, so a failed push is retried
-   * @param {Promise<Snapshot>} shared - the group's snapshot with favicons inlined
-   */
-  async function pushTo(tab, key, shared) {
-    const tabId = /** @type {number} */ (tab.id);
-    const group = await shared;
-    const snapshot = { ...group, tabs: group.tabs.map((t) => ({ ...t, active: t.id === tabId })) };
-    /** @type {ServerMessage} */
-    const message = { type: MSG.SNAPSHOT, snapshot };
-    try {
-      await api.tabs.sendMessage(tabId, message, { frameId: 0 });
-      lastSent.set(tabId, key);
-    } catch {
-      if (tab.active) await injectBar(tab); // no bar is listening in the visible tab yet
-    }
-  }
-
-  /**
-   * A loaded web page with no bar was opened before the extension was installed or updated
-   * (Chrome doesn't inject into existing tabs). Inject it now, only for tabs the user visits.
-   * @param {chrome.tabs.Tab} tab
-   */
-  async function injectBar(tab) {
-    if (tab.id === undefined || tab.status !== 'complete' || !INJECTABLE_URL.test(tab.url ?? '')) {
-      return;
-    }
-    const files = api.runtime.getManifest().content_scripts?.[0]?.js ?? [];
-    try {
-      await api.scripting.executeScript({ target: { tabId: tab.id, frameIds: [0] }, files });
-    } catch {
-      // Some https pages are still off-limits (e.g. the Web Store); the bar just isn't shown.
-    }
+    const { tabs, groups } = await windowState(api, windowId);
+    const pending = planPushes({ tabs, groups, lastSent, favicons });
+    await Promise.all(
+      pending.map(({ tab, key, shared }) => pushTo({ api, lastSent }, tab, key, shared)),
+    );
   }
 
   /** @param {number} windowId */
@@ -146,4 +93,76 @@ export function createHub({
   }
 
   return { snapshotFor, schedule, scheduleAll, forget };
+}
+
+/**
+ * @param {typeof chrome} api
+ * @param {number} windowId
+ */
+async function windowState(api, windowId) {
+  const [tabs, groups] = await Promise.all([
+    api.tabs.query({ windowId }),
+    api.tabGroups.query({ windowId }),
+  ]);
+  return { tabs, groups };
+}
+
+/**
+ * @param {{ api: typeof chrome, lastSent: Map<number, string> }} deps
+ * @param {chrome.tabs.Tab} tab - has an id
+ * @param {string} key - recorded only once the bar has it, so a failed push is retried
+ * @param {Promise<Snapshot>} shared - the group's snapshot with favicons inlined
+ */
+async function pushTo({ api, lastSent }, tab, key, shared) {
+  const tabId = /** @type {number} */ (tab.id);
+  const group = await shared;
+  const snapshot = { ...group, tabs: group.tabs.map((t) => ({ ...t, active: t.id === tabId })) };
+  /** @type {ServerMessage} */
+  const message = { type: MSG.SNAPSHOT, snapshot };
+  try {
+    await api.tabs.sendMessage(tabId, message, { frameId: 0 });
+    lastSent.set(tabId, key);
+  } catch {
+    if (tab.active) await injectBar(api, tab); // no bar is listening in the visible tab yet
+  }
+}
+
+/**
+ * A loaded web page with no bar was opened before the extension was installed or updated
+ * (Chrome doesn't inject into existing tabs). Inject it now, only for tabs the user visits.
+ * @param {typeof chrome} api
+ * @param {chrome.tabs.Tab} tab
+ */
+async function injectBar(api, tab) {
+  if (tab.id === undefined || tab.status !== 'complete' || !INJECTABLE_URL.test(tab.url ?? '')) {
+    return;
+  }
+  const files = api.runtime.getManifest().content_scripts?.[0]?.js ?? [];
+  try {
+    await api.scripting.executeScript({ target: { tabId: tab.id, frameIds: [0] }, files });
+  } catch {
+    // Some https pages are still off-limits (e.g. the Web Store); the bar just isn't shown.
+  }
+}
+
+/**
+ * The bars whose content changed, each with its key and its group's shared snapshot.
+ * @param {object} input
+ * @param {chrome.tabs.Tab[]} input.tabs
+ * @param {chrome.tabGroups.TabGroup[]} input.groups
+ * @param {Map<number, string>} input.lastSent
+ * @param {Pick<ReturnType<typeof createFavicons>, 'inline'>} input.favicons
+ */
+function planPushes({ tabs, groups, lastSent, favicons }) {
+  /** @type {Map<number, Promise<Snapshot>>} */
+  const perGroup = new Map();
+  return tabs.flatMap((tab) => {
+    if (tab.id === undefined || tab.discarded || !INJECTABLE_URL.test(tab.url ?? '')) return [];
+    const built = buildSnapshot({ tabs, groups, tabId: tab.id });
+    const key = JSON.stringify(built);
+    if (key === lastSent.get(tab.id)) return [];
+    const groupKey = built.group?.id ?? UNGROUPED_ID;
+    if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, tabs));
+    return [{ tab, key, shared: /** @type {Promise<Snapshot>} */ (perGroup.get(groupKey)) }];
+  });
 }
