@@ -26,7 +26,9 @@ type ClientMessage =
   | { type: 'hello' }
   | { type: 'activate'; tabId: number }
   | { type: 'close'; tabId: number }
-  | { type: 'new' };
+  | { type: 'new' }
+  /** toIndex is a position within the sender's group (or among the ungrouped tabs). */
+  | { type: 'move'; tabId: number; toIndex: number };
 
 type ServerMessage = { type: 'snapshot'; snapshot: Snapshot };
 

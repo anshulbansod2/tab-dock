@@ -28,6 +28,7 @@ beforeEach(() => {
     onClose: vi.fn(),
     onNew: vi.fn(),
     onToggleCollapse: vi.fn(),
+    onMove: vi.fn(),
   };
   ns.bindEvents(mount, handlers);
   ns.render(mount, { snapshot, collapsed: false });
@@ -35,9 +36,10 @@ beforeEach(() => {
 
 const q = (sel) => mount.querySelector(sel);
 const tab = (id) => q(`.hh-tab[data-tab-id="${id}"]`);
-const key = (target, k) => {
+const key = (target, k, modifiers = {}) => {
   const event = new KeyboardEvent('keydown', {
     key: k,
+    ...modifiers,
     bubbles: true,
     composed: true,
     cancelable: true,
@@ -166,6 +168,19 @@ describe('keyboard', () => {
     expect(shadow.activeElement).toBe(tab(1));
     key(tab(1), 'End');
     expect(shadow.activeElement).toBe(tab(3));
+  });
+
+  it('moves the focused tab with Alt+Shift+arrows, never past either end', () => {
+    const move = { altKey: true, shiftKey: true };
+    tab(2).focus();
+    expect(key(tab(2), 'ArrowLeft', move).defaultPrevented).toBe(true);
+    expect(handlers.onMove).toHaveBeenLastCalledWith(2, 0);
+    key(tab(2), 'ArrowRight', move);
+    expect(handlers.onMove).toHaveBeenLastCalledWith(2, 2);
+    expect(shadow.activeElement).toBe(tab(2)); // focus stays on the moved tab
+    key(tab(1), 'ArrowLeft', move);
+    key(tab(3), 'ArrowRight', move);
+    expect(handlers.onMove).toHaveBeenCalledTimes(2);
   });
 
   it.each(['keydown', 'keyup', 'keypress'])(

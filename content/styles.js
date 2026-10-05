@@ -72,9 +72,16 @@
 .hh-chip {
   position: relative; display: flex; align-items: center; flex: 0 1 auto; min-width: 96px;
   height: 32px;
-  border-radius: 10px; background: var(--hh-chip); transition: background-color 120ms;
+  border-radius: 10px; background: var(--hh-chip);
+  transition: background-color 120ms, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .hh-chip:hover { background: var(--hh-chip-hover); }
+/* Reordering: neighbours slide aside; the dragged chip lifts and tracks the pointer exactly. */
+.hh-chip--dragging {
+  z-index: 1; transition: none; cursor: grabbing; background: var(--hh-current);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45), inset 0 0 0 1px var(--hh-edge);
+}
+@media (prefers-reduced-motion: reduce) { .hh-chip { transition: background-color 120ms; } }
 .hh-chip:has(> [aria-current='page']) {
   background: var(--hh-current);
   box-shadow: inset 0 0 0 1px var(--hh-edge), 0 1px 2px rgb(0 0 0 / 0.1);

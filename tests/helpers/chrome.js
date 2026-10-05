@@ -63,6 +63,8 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       remove: vi.fn(async () => undefined),
       create: vi.fn(async (props) => ({ id: 999, ...props })),
       group: vi.fn(async () => 1),
+      ungroup: vi.fn(async () => undefined),
+      move: vi.fn(async (id) => get(id)),
       sendMessage: vi.fn(async () => undefined),
       onCreated: createEvent(),
       onRemoved: createEvent(),

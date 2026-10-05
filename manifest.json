@@ -23,6 +23,7 @@
         "content/events.js",
         "content/connection.js",
         "content/drag.js",
+        "content/reorder.js",
         "content/bar.js",
         "content/main.js"
       ]

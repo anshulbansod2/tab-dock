@@ -31,7 +31,7 @@ export function buildSnapshot({ tabs, groups, tabId }) {
  * @param {chrome.tabs.Tab} tab
  * @returns {number}
  */
-function effectiveGroupId(tab) {
+export function effectiveGroupId(tab) {
   return tab.pinned ? UNGROUPED_ID : (tab.groupId ?? UNGROUPED_ID);
 }
 

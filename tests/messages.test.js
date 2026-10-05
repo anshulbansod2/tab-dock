@@ -15,6 +15,10 @@ describe('parseClientMessage', () => {
     [{ type: 'new' }, { type: 'new' }],
     [{ type: 'hello' }, { type: 'hello' }],
     [{ type: 'new', tabId: 9, extra: true }, { type: 'new' }],
+    [
+      { type: 'move', tabId: 3, toIndex: 0 },
+      { type: 'move', tabId: 3, toIndex: 0 },
+    ],
   ])('accepts %j', (raw, expected) => {
     expect(parseClientMessage(raw)).toEqual(expected);
   });
@@ -30,6 +34,9 @@ describe('parseClientMessage', () => {
     { type: 'close', tabId: -1 },
     { type: 'snapshot', snapshot: {} },
     { type: 'eval', tabId: 1 },
+    { type: 'move', tabId: 3 },
+    { type: 'move', tabId: 3, toIndex: -1 },
+    { type: 'move', tabId: 3, toIndex: 0.5 },
   ])('rejects %j', (raw) => {
     expect(parseClientMessage(raw)).toBeNull();
   });

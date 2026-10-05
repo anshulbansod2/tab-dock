@@ -8,13 +8,15 @@ import { MSG } from './constants.js';
  */
 export function parseClientMessage(raw) {
   if (typeof raw !== 'object' || raw === null) return null;
-  const { type, tabId } = /** @type {{ type?: unknown, tabId?: unknown }} */ (raw);
+  const { type, tabId, toIndex } = /** @type {Record<string, unknown>} */ (raw);
   if (type === MSG.NEW || type === MSG.HELLO) return { type };
   if ((type === MSG.ACTIVATE || type === MSG.CLOSE) && isTabId(tabId)) return { type, tabId };
+  if (type === MSG.MOVE && isTabId(tabId) && isTabId(toIndex)) return { type, tabId, toIndex };
   return null;
 }
 
 /**
+ * A non-negative integer (tab ids and positions).
  * @param {unknown} value
  * @returns {value is number}
  */

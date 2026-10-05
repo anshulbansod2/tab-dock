@@ -3,7 +3,18 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { createEvent, flushPromises } from './helpers/chrome.js';
 import { loadContent } from './helpers/content.js';
 
-const ORDER = ['core', 'format', 'styles', 'dom', 'render', 'events', 'connection', 'drag', 'bar'];
+const ORDER = [
+  'core',
+  'format',
+  'styles',
+  'dom',
+  'render',
+  'events',
+  'connection',
+  'drag',
+  'reorder',
+  'bar',
+];
 const KEY = 'tabDock.collapsed';
 const snapshot = {
   group: { id: 10, title: 'Work', color: 'blue' },
@@ -180,6 +191,31 @@ describe('mountBar', () => {
     expect(bindDrag).toHaveBeenCalledWith(
       expect.objectContaining({ host: mounted.host, win: window, storage, storageEvents }),
     );
+    mounted.unmount();
+    expect(dispose).toHaveBeenCalledOnce();
+    mounted = null;
+  });
+
+  it('sends a reorder to the background and holds re-renders while a chip is dragged', async () => {
+    mounted.unmount();
+    let callbacks;
+    const dispose = vi.fn();
+    vi.spyOn(ns, 'bindReorder').mockImplementation((_mount, given) => {
+      callbacks = given;
+      return { dispose };
+    });
+    mounted = mount();
+    await settle();
+    const render = vi.spyOn(ns, 'render');
+    callbacks.onDragStart();
+    push();
+    await settle();
+    expect(render).not.toHaveBeenCalled(); // the chip being dragged stays in the page
+    callbacks.onMove(2, 0);
+    callbacks.onDragEnd();
+    await settle();
+    expect(render).toHaveBeenCalledOnce(); // the held snapshot paints after the drop
+    expect(actions()).toEqual([{ type: 'move', tabId: 2, toIndex: 0 }]);
     mounted.unmount();
     expect(dispose).toHaveBeenCalledOnce();
     mounted = null;

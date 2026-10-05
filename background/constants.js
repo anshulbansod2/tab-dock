@@ -7,6 +7,7 @@ export const MSG = Object.freeze({
   ACTIVATE: 'activate',
   CLOSE: 'close',
   NEW: 'new',
+  MOVE: 'move',
 });
 
 /** Mirrors chrome.tabGroups.TAB_GROUP_ID_NONE so pure modules need no chrome global. */

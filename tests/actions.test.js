@@ -65,4 +65,46 @@ describe('handleAction', () => {
     await handleAction({ type: 'new' }, { tabId: 5, windowId: 1 }, api);
     expect(api.tabs.group).not.toHaveBeenCalled();
   });
+
+  describe('move', () => {
+    beforeEach(() => {
+      api.state.tabs.push(makeTab({ id: 6, index: 4, groupId: 10 }));
+    });
+
+    it("moves a tab to a position among its group's tabs", async () => {
+      // Group 10 holds tabs 1, 2, 6 at window indexes 0, 1, 4: position 2 is index 4.
+      await handleAction({ type: 'move', tabId: 1, toIndex: 2 }, client, api);
+      expect(api.tabs.move).toHaveBeenCalledWith(1, { index: 4 });
+    });
+
+    it('clamps a position past the end to the last tab', async () => {
+      await handleAction({ type: 'move', tabId: 6, toIndex: 99 }, client, api);
+      expect(api.tabs.move).toHaveBeenCalledWith(6, { index: 4 });
+    });
+
+    it('moves ungrouped tabs among the ungrouped ones, pinned included', async () => {
+      await handleAction({ type: 'move', tabId: 4, toIndex: 1 }, { tabId: 4, windowId: 1 }, api);
+      expect(api.tabs.move).toHaveBeenCalledWith(4, { index: 3 });
+    });
+
+    it('puts the tab back in its group if Chrome dropped it out at the edge', async () => {
+      api.tabs.move.mockImplementationOnce(async (id) => ({ ...makeTab({ id }), groupId: -1 }));
+      await handleAction({ type: 'move', tabId: 1, toIndex: 2 }, client, api);
+      expect(api.tabs.group).toHaveBeenCalledWith({ groupId: 10, tabIds: 1 });
+    });
+
+    it('takes an ungrouped tab back out of a group Chrome pulled it into', async () => {
+      api.tabs.move.mockImplementationOnce(async (id) => ({ ...makeTab({ id }), groupId: 10 }));
+      await handleAction({ type: 'move', tabId: 4, toIndex: 0 }, { tabId: 4, windowId: 1 }, api);
+      expect(api.tabs.ungroup).toHaveBeenCalledWith(4);
+    });
+
+    it("ignores a tab outside the sender's group", async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await handleAction({ type: 'move', tabId: 4, toIndex: 0 }, client, api);
+      await handleAction({ type: 'move', tabId: 3, toIndex: 0 }, client, api);
+      expect(api.tabs.move).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(2);
+    });
+  });
 });

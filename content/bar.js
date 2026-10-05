@@ -50,7 +50,13 @@
       storage,
       storageEvents,
     });
+    const reorder = ns.bindReorder(mount, {
+      onMove: (tabId, toIndex) => connection.send({ type: MSG.MOVE, tabId, toIndex }),
+      onDragStart: () => view.hold(true),
+      onDragEnd: () => view.hold(false),
+    });
     const unmount = () => {
+      reorder.dispose();
       drag.dispose();
       view.dispose();
       connection.stop();
@@ -66,6 +72,7 @@
       onActivate: (tabId) => connection.send({ type: MSG.ACTIVATE, tabId }),
       onClose: (tabId) => connection.send({ type: MSG.CLOSE, tabId }),
       onNew: () => connection.send({ type: MSG.NEW }),
+      onMove: (tabId, toIndex) => connection.send({ type: MSG.MOVE, tabId, toIndex }),
       onToggleCollapse: () =>
         void persistCollapsed(storage, !view.isCollapsed(), view.setCollapsed),
     });
@@ -81,7 +88,8 @@
   /**
    * Holds the latest snapshot and collapsed flag; paints only once both are known so the bar
    * never flashes in the wrong state. Paints are coalesced into the next animation frame, so a
-   * burst of snapshots or collapse changes costs one render with the latest data.
+   * burst of snapshots or collapse changes costs one render with the latest data. While held
+   * (a chip is being dragged) nothing paints; the latest data paints on release.
    * @param {HTMLElement} mount
    * @param {(callback: FrameRequestCallback) => number} [requestFrame]
    * @param {(handle: number) => void} [cancelFrame]
@@ -97,8 +105,15 @@
     let collapsed = null;
     /** @type {number | null} */
     let frame = null;
+    let held = false;
+    let stale = false;
     const paint = () => {
       frame = null;
+      if (held) {
+        stale = true;
+        return;
+      }
+      stale = false;
       if (snapshot && collapsed !== null) ns.render(mount, { snapshot, collapsed });
     };
     const schedule = () => {
@@ -120,6 +135,11 @@
         schedule();
       },
       isCollapsed: () => collapsed === true,
+      /** @param {boolean} next */
+      hold(next) {
+        held = next;
+        if (!held && stale) schedule();
+      },
       dispose: cancel,
     };
   }

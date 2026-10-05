@@ -85,6 +85,10 @@
     stop(event);
     const tab = closest(event, '.hh-tab');
     if (!(tab instanceof HTMLElement)) return;
+    if (event.altKey && event.shiftKey) {
+      moveTab(event, tab, h);
+      return;
+    }
     // Enter/Space are left to the native <button>, which turns them into one click.
     switch (event.key) {
       case 'Delete':
@@ -100,6 +104,22 @@
         break;
       default:
     }
+  }
+
+  /**
+   * Alt+Shift+←/→ moves the focused tab one place, within the strip's ends.
+   * @param {KeyboardEvent} event
+   * @param {HTMLElement} tab
+   * @param {BarHandlers} h
+   */
+  function moveTab(event, tab, h) {
+    const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const list = tab.closest('[role="toolbar"]');
+    const tabs = list ? [...list.querySelectorAll('.hh-tab')] : [];
+    const to = tabs.indexOf(tab) + step;
+    if (to >= 0 && to < tabs.length) h.onMove(tabIdOf(tab), to);
   }
 
   /**

@@ -7,6 +7,7 @@ interface ContentConstants {
     ACTIVATE: 'activate';
     CLOSE: 'close';
     NEW: 'new';
+    MOVE: 'move';
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
@@ -31,6 +32,14 @@ interface BarHandlers {
   onClose(tabId: number): void;
   onNew(): void;
   onToggleCollapse(): void;
+  onMove(tabId: number, toIndex: number): void;
+}
+
+interface ReorderCallbacks {
+  onMove(tabId: number, toIndex: number): void;
+  /** A chip drag began: hold re-renders so the dragged chip isn't replaced mid-drag. */
+  onDragStart(): void;
+  onDragEnd(): void;
 }
 
 interface Connection {
@@ -96,6 +105,7 @@ interface TabDockNamespace {
     toPixels(fraction: Placement, box: Box, viewport: Box): { left: number; top: number };
   }>;
   bindDrag(options: DragOptions): { dispose(): void };
+  bindReorder(mount: HTMLElement, callbacks: ReorderCallbacks): { dispose(): void };
   mountBar(options: MountOptions): MountedBar | null;
 }
 

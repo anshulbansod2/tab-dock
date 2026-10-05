@@ -11,6 +11,7 @@
       ACTIVATE: /** @type {const} */ ('activate'),
       CLOSE: /** @type {const} */ ('close'),
       NEW: /** @type {const} */ ('new'),
+      MOVE: /** @type {const} */ ('move'),
     }),
     /** Custom tag (not an id) so page markup can't collide with or block the bar. */
     HOST_TAG: 'tab-dock-bar',
