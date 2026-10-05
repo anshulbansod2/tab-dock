@@ -63,4 +63,3 @@ npm run icons          # regenerate icons
 ```
 
 No build step: Chrome loads `manifest.json`, `background/`, `content/` and `icons/` directly.
-Design: `docs/superpowers/specs/2026-10-05-hover-helper-design.md`.

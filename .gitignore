@@ -8,3 +8,6 @@ dist/
 .agents/
 .claude/
 skills-lock.json
+
+# Local design notes and plans (kept on disk, not in git)
+docs/superpowers/
