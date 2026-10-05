@@ -53,7 +53,7 @@
 
     const drag = ns.bindDrag({ host, mount, win, storage, storageEvents });
     const moves = bindTabMoves({ mount, layer, win, view, send });
-    const guard = guardHost(host, doc);
+    const guard = guardHost(host, doc, { runtime, onStale: () => unmount() });
     const unmount = () => {
       guard.dispose();
       moves.dispose();
@@ -88,11 +88,13 @@
   /**
    * Some pages tidy up elements they didn't create (removing them, or closing every open
    * popover), which made the bar vanish until a reload. The bar puts itself back, but at
-   * most HEAL_LIMIT times per HEAL_WINDOW_MS so it never fights a page that insists.
+   * most HEAL_LIMIT times per HEAL_WINDOW_MS so it never fights a page that insists, and
+   * never once it is stale (see isSuperseded): then it unmounts instead.
    * @param {HTMLElement} host
    * @param {Document} doc
+   * @param {{ runtime: typeof chrome.runtime, onStale: () => void }} options
    */
-  function guardHost(host, doc) {
+  function guardHost(host, doc, { runtime, onStale }) {
     /** @type {number[]} */
     let heals = [];
     const allowed = () => {
@@ -110,14 +112,19 @@
       observer.observe(doc, { childList: true });
       observer.observe(doc.documentElement, { childList: true });
     };
+    const stale = () => {
+      if (!isSuperseded(host, doc, runtime)) return false;
+      onStale();
+      return true;
+    };
     const observer = new MutationObserver(() => {
-      if (host.isConnected || !allowed()) return;
+      if (host.isConnected || stale() || !allowed()) return;
       ns.logger.warn('page removed the bar; restoring it');
       attach();
     });
     // After giving up, coming back to the tab is a fresh chance.
     const onVisible = () => {
-      if (doc.visibilityState !== 'visible' || host.isConnected) return;
+      if (doc.visibilityState !== 'visible' || host.isConnected || stale()) return;
       heals = [];
       attach();
     };
@@ -125,7 +132,7 @@
     const onToggle = (event) => {
       const closed = /** @type {ToggleEvent} */ (event).newState === 'closed';
       if (!closed || !host.isConnected || !host.hasAttribute('popover') || isOpen(host)) return;
-      if (!allowed()) return;
+      if (stale() || !allowed()) return;
       ns.logger.warn('page closed the bar; reopening it');
       showInTopLayer(host);
     };
@@ -141,6 +148,21 @@
         doc.removeEventListener('visibilitychange', onVisible);
       },
     };
+  }
+
+  /**
+   * A bar is stale once its extension was reloaded or removed (Chrome clears runtime.id, but
+   * the old content script keeps running), or once a newer instance's bar is on the page; a
+   * stale bar putting itself back would leave two bars stacked.
+   * @param {HTMLElement} host
+   * @param {Document} doc
+   * @param {typeof chrome.runtime} runtime
+   */
+  function isSuperseded(host, doc, runtime) {
+    if (!runtime.id) return true;
+    return [...doc.getElementsByTagName(HOST_TAG)].some(
+      (el) => el !== host && /** @type {HTMLElement} */ (el).dataset.instance !== ns.instance,
+    );
   }
 
   /**

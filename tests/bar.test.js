@@ -311,6 +311,31 @@ describe('mountBar', () => {
     expect(mounted.host.isConnected).toBe(true);
   });
 
+  it('yields to a newer bar instead of putting itself back (extension reloaded)', async () => {
+    await settle();
+    const newer = document.createElement('tab-dock-bar');
+    newer.dataset.instance = 'newer-instance';
+    document.documentElement.append(newer);
+    mounted.host.remove(); // what the newer instance's mountBar does to this one
+    await flushPromises();
+    expect(mounted.host.isConnected).toBe(false);
+    expect(document.querySelectorAll('tab-dock-bar')).toHaveLength(1);
+    newer.remove();
+    mounted = null;
+  });
+
+  it('does not put itself back once its extension is gone', async () => {
+    await settle();
+    delete runtime.id; // Chrome clears it when the extension is reloaded or removed
+    mounted.host.remove();
+    await flushPromises();
+    expect(mounted.host.isConnected).toBe(false);
+    setVisibility('hidden');
+    setVisibility('visible');
+    expect(mounted.host.isConnected).toBe(false);
+    mounted = null;
+  });
+
   it('stays removed after unmount', async () => {
     const { host } = mounted;
     mounted.unmount();
