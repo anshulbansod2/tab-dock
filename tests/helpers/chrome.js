@@ -54,6 +54,7 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       getURL: (path) => `chrome-extension://ext-id${path}`,
       getManifest: () => ({ content_scripts: [{ js: ['content/core.js', 'content/main.js'] }] }),
     },
+    storage: { local: createStorage() },
     scripting: { executeScript: vi.fn(async () => []) },
     tabs: {
       query: vi.fn(async ({ windowId }) => state.tabs.filter((t) => t.windowId === windowId)),
@@ -78,6 +79,24 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       onRemoved: createEvent(),
       onMoved: createEvent(),
     },
+  };
+}
+
+/** An in-memory chrome.storage area. */
+export function createStorage(items = {}) {
+  const data = { ...items };
+  const pick = (keys) =>
+    Object.fromEntries(
+      [keys]
+        .flat()
+        .filter((k) => k in data)
+        .map((k) => [k, data[k]]),
+    );
+  return {
+    data,
+    get: vi.fn(async (keys) => (keys === null || keys === undefined ? { ...data } : pick(keys))),
+    set: vi.fn(async (next) => void Object.assign(data, next)),
+    remove: vi.fn(async (keys) => [keys].flat().forEach((k) => delete data[k])),
   };
 }
 

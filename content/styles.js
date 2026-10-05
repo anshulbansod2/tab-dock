@@ -3,7 +3,7 @@
 // page CSP and isolated from page CSS). A floating glass dock whose one accent is the Chrome
 // tab group's own colour.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
 
   ns.styles = `
 /* Tokens stay unregistered so each light-dark() resolves where it is used, against that

@@ -29,7 +29,7 @@ export default [
     files: ['content/**/*.js'],
     languageOptions: {
       sourceType: 'script',
-      globals: { ...globals.browser, ...globals.webextensions, HoverHelper: 'readonly' },
+      globals: { ...globals.browser, ...globals.webextensions, TabDock: 'readonly' },
     },
   },
   {

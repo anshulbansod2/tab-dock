@@ -4,7 +4,7 @@ import { createEvent, flushPromises } from './helpers/chrome.js';
 import { loadContent } from './helpers/content.js';
 
 const ORDER = ['core', 'format', 'styles', 'dom', 'render', 'events', 'connection', 'drag', 'bar'];
-const KEY = 'hoverHelper.collapsed';
+const KEY = 'tabDock.collapsed';
 const snapshot = {
   group: { id: 10, title: 'Work', color: 'blue' },
   tabs: [
@@ -25,7 +25,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   setVisibility('visible', false);
-  document.querySelectorAll('hover-helper-bar').forEach((el) => el.remove());
+  document.querySelectorAll('tab-dock-bar').forEach((el) => el.remove());
   runtime = {
     id: 'ext-id',
     sendMessage: vi.fn(async (msg) => (msg.type === 'hello' ? snapshot : undefined)),
@@ -80,7 +80,7 @@ describe('mountBar', () => {
       (shadow().adoptedStyleSheets?.length ?? 0) > 0;
     expect(styled).toBe(true);
     expect(mount()).toBeNull();
-    expect(document.querySelectorAll('hover-helper-bar')).toHaveLength(1);
+    expect(document.querySelectorAll('tab-dock-bar')).toHaveLength(1);
   });
 
   it('stays a fixed-position host where the popover API is missing', async () => {
@@ -134,7 +134,7 @@ describe('mountBar', () => {
       // A popover that isn't open is display:none, so drop the attribute to stay visible.
       expect(mounted.host.hasAttribute('popover')).toBe(false);
       expect(warn).toHaveBeenCalledWith(
-        '[hover-helper]',
+        '[tab-dock]',
         'top layer unavailable',
         expect.any(DOMException),
       );
@@ -188,7 +188,7 @@ describe('mountBar', () => {
   it('is not blocked by a page element that reuses our old id', () => {
     mounted.unmount();
     const decoy = document.createElement('div');
-    decoy.id = 'hover-helper-root';
+    decoy.id = 'tab-dock-root';
     document.body.append(decoy);
     mounted = mount();
     expect(mounted).not.toBeNull();
@@ -197,12 +197,12 @@ describe('mountBar', () => {
 
   it('replaces a bar left behind by a previous extension instance', () => {
     mounted.unmount();
-    const stale = document.createElement('hover-helper-bar');
+    const stale = document.createElement('tab-dock-bar');
     stale.dataset.instance = 'old-instance';
     document.documentElement.append(stale);
     mounted = mount();
     expect(stale.isConnected).toBe(false);
-    expect(document.querySelectorAll('hover-helper-bar')).toHaveLength(1);
+    expect(document.querySelectorAll('tab-dock-bar')).toHaveLength(1);
   });
 
   it('renders the snapshot once the collapsed state is known', async () => {
@@ -259,7 +259,7 @@ describe('mountBar', () => {
     await settle();
     expect(q('.hh-pill')).not.toBeNull();
     expect(warn).toHaveBeenCalledWith(
-      '[hover-helper]',
+      '[tab-dock]',
       'saving collapsed state failed',
       expect.any(Error),
     );
@@ -291,7 +291,7 @@ describe('mountBar', () => {
     await settle();
     expect(q('.hh-bar')).not.toBeNull();
     expect(warn).toHaveBeenCalledWith(
-      '[hover-helper]',
+      '[tab-dock]',
       'reading collapsed state failed',
       expect.any(Error),
     );
@@ -325,6 +325,6 @@ describe('mountBar', () => {
     runtime.sendMessage.mockRejectedValue(new Error('Extension context invalidated.'));
     q('[data-action="new"]').click();
     await flushPromises();
-    expect(document.querySelector('hover-helper-bar')).toBeNull();
+    expect(document.querySelector('tab-dock-bar')).toBeNull();
   });
 });

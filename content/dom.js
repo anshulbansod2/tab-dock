@@ -1,7 +1,7 @@
 // @ts-check
 // Element builders. Every piece of tab data goes through textContent/attributes, never HTML.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
 
   /**
    * @template {keyof HTMLElementTagNameMap} K

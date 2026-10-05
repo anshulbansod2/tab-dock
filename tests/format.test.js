@@ -43,7 +43,7 @@ describe('logger', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     ns.logger.warn('w');
     ns.logger.error('e');
-    expect(warn).toHaveBeenCalledWith('[hover-helper]', 'w');
-    expect(error).toHaveBeenCalledWith('[hover-helper]', 'e');
+    expect(warn).toHaveBeenCalledWith('[tab-dock]', 'w');
+    expect(error).toHaveBeenCalledWith('[tab-dock]', 'e');
   });
 });

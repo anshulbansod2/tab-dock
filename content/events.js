@@ -1,7 +1,7 @@
 // @ts-check
 // Delegated mouse + keyboard handling. Bound once on the mount; survives every re-render.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const MIDDLE_BUTTON = 1;
 
   ns.bindEvents = (mount, handlers) => {

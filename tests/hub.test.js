@@ -110,7 +110,7 @@ describe('createHub', () => {
     api.tabs.query.mockRejectedValueOnce(new Error('boom'));
     hub.scheduleAll();
     await flushPromises();
-    expect(error).toHaveBeenCalledWith('[hover-helper]', 'refresh failed', expect.any(Error));
+    expect(error).toHaveBeenCalledWith('[tab-dock]', 'refresh failed', expect.any(Error));
   });
 
   it('ignores WINDOW_ID_NONE', async () => {
@@ -162,6 +162,6 @@ describe('createHub', () => {
     api.tabs.query.mockRejectedValueOnce(new Error('boom'));
     hub.schedule(1);
     await settle();
-    expect(error).toHaveBeenCalledWith('[hover-helper]', 'push failed', expect.any(Error));
+    expect(error).toHaveBeenCalledWith('[tab-dock]', 'push failed', expect.any(Error));
   });
 });

@@ -1,6 +1,6 @@
 // @ts-check
 
-const PREFIX = '[hover-helper]';
+const PREFIX = '[tab-dock]';
 
 /** Thin wrapper so every log line is attributable to this extension. */
 export const logger = Object.freeze({

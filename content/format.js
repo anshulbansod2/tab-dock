@@ -1,7 +1,7 @@
 // @ts-check
 // Pure display helpers for untrusted tab data.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const { GROUP_COLORS, NEUTRAL_COLOR, UNGROUPED_LABEL } = ns.constants;
   const SAFE_FAVICON = /^data:image\//i;
 

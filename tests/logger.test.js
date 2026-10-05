@@ -7,8 +7,8 @@ describe('logger', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     logger.warn('a', 1);
     logger.error('b');
-    expect(warn).toHaveBeenCalledWith('[hover-helper]', 'a', 1);
-    expect(error).toHaveBeenCalledWith('[hover-helper]', 'b');
+    expect(warn).toHaveBeenCalledWith('[tab-dock]', 'a', 1);
+    expect(error).toHaveBeenCalledWith('[tab-dock]', 'b');
   });
 });
 

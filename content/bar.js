@@ -1,7 +1,7 @@
 // @ts-check
 // Mounts the bar into the page and connects state, rendering, events and the port.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const { HOST_TAG, STORAGE_KEY, MSG } = ns.constants;
 
   /**

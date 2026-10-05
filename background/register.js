@@ -4,6 +4,7 @@ import { MSG } from './constants.js';
 import { createHub } from './hub.js';
 import { logger } from './logger.js';
 import { identifySender, parseClientMessage } from './messages.js';
+import { migrateStorage } from './migrate.js';
 
 /** @typedef {import('./hub.js').Hub} Hub */
 
@@ -22,7 +23,10 @@ export function registerBackground(api) {
     onClientMessage(raw, sender, sendResponse, hub, api),
   );
   // After install/update, open pages have no bar; refreshing the visible ones injects it.
-  api.runtime.onInstalled.addListener(() => void hub.scheduleAll());
+  api.runtime.onInstalled.addListener(() => {
+    void migrateStorage(api.storage.local); // settings saved before the rename to Tab Dock
+    void hub.scheduleAll();
+  });
   registerTabEvents(api, hub);
   registerGroupEvents(api, hub);
   return hub;

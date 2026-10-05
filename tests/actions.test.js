@@ -45,7 +45,7 @@ describe('handleAction', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     api.tabs.remove.mockRejectedValueOnce(new Error('boom'));
     await expect(handleAction({ type: 'close', tabId: 2 }, client, api)).resolves.toBeUndefined();
-    expect(error).toHaveBeenCalledWith('[hover-helper]', 'close failed', expect.any(Error));
+    expect(error).toHaveBeenCalledWith('[tab-dock]', 'close failed', expect.any(Error));
   });
 
   it('opens a new tab next to a grouped tab and adds it to the group', async () => {

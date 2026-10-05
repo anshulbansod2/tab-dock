@@ -58,7 +58,7 @@ describe('registerBackground', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(deliver({ type: 'hello' }, createSender({ extensionId: 'evil' })).keepOpen).toBe(false);
     expect(deliver({ type: 'activate', tabId: 'x' }).keepOpen).toBe(false);
-    expect(warn).toHaveBeenCalledWith('[hover-helper]', 'dropped invalid message');
+    expect(warn).toHaveBeenCalledWith('[tab-dock]', 'dropped invalid message');
   });
 
   it('routes actions', async () => {
@@ -74,6 +74,13 @@ describe('registerBackground', () => {
     api.tabs.onUpdated.emit(1, { title: 'New' }, makeTab({ id: 1 }));
     await settle();
     expect(api.tabs.sendMessage).toHaveBeenCalledTimes(2); // both bars in the window
+  });
+
+  it('moves settings saved under the old name when the extension updates', async () => {
+    api.storage.local.data['hoverHelper.position'] = { x: 1, y: 0 };
+    api.runtime.onInstalled.emit({ reason: 'update' });
+    await flushPromises();
+    expect(api.storage.local.data).toEqual({ 'tabDock.position': { x: 1, y: 0 } });
   });
 
   it.each([

@@ -79,7 +79,7 @@ interface MountedBar {
   unmount(): void;
 }
 
-interface HoverHelperNamespace {
+interface TabDockNamespace {
   constants: ContentConstants;
   instance: string;
   logger: Logger;
@@ -99,4 +99,4 @@ interface HoverHelperNamespace {
   mountBar(options: MountOptions): MountedBar | null;
 }
 
-declare var HoverHelper: HoverHelperNamespace;
+declare var TabDock: TabDockNamespace;

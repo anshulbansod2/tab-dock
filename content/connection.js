@@ -3,7 +3,7 @@
 // a bar asks for a snapshot when it loads and whenever its page is shown, and the background
 // pushes updates to every bar, hidden ones included, so a tab switch shows a current bar.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const { MSG } = ns.constants;
   const CONTEXT_GONE = /Extension context invalidated/i;
 

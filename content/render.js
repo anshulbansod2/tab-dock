@@ -1,7 +1,7 @@
 // @ts-check
 // Re-renders the bar for each snapshot while preserving keyboard focus and tab-list scroll.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
 
   /** Collapsing focuses the pill and expanding focuses the collapse button. */
   const TOGGLE_PARTNER = Object.freeze(

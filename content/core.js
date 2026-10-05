@@ -1,7 +1,7 @@
 // @ts-check
 // Shared constants and logger for the content scripts. Loaded first (see manifest.json).
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
 
   ns.constants = Object.freeze({
     /** Must equal background/constants.js MSG (tests/contract.test.js). */
@@ -13,9 +13,9 @@
       NEW: /** @type {const} */ ('new'),
     }),
     /** Custom tag (not an id) so page markup can't collide with or block the bar. */
-    HOST_TAG: 'hover-helper-bar',
-    STORAGE_KEY: 'hoverHelper.collapsed',
-    POSITION_KEY: 'hoverHelper.position',
+    HOST_TAG: 'tab-dock-bar',
+    STORAGE_KEY: 'tabDock.collapsed',
+    POSITION_KEY: 'tabDock.position',
     UNGROUPED_LABEL: 'Ungrouped',
     NEUTRAL_COLOR: '#80868b',
     /** chrome.tabGroups.Color → the swatch Chrome draws for it. */
@@ -35,7 +35,7 @@
   /** Identifies this injection; bars from an earlier (reloaded) extension instance differ. */
   ns.instance ??= `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
-  const PREFIX = '[hover-helper]';
+  const PREFIX = '[tab-dock]';
   ns.logger = Object.freeze({
     /** @param {...unknown} args */
     warn: (...args) => console.warn(PREFIX, ...args),

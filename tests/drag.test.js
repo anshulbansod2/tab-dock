@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { createEvent, flushPromises } from './helpers/chrome.js';
 import { loadContent } from './helpers/content.js';
 
-const KEY = 'hoverHelper.position';
+const KEY = 'tabDock.position';
 const DOCK = { width: 400, height: 44 };
 const snapshot = {
   group: { id: 10, title: 'Work', color: 'blue' },
@@ -24,7 +24,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   setViewport(1024, 768);
-  host = document.createElement('hover-helper-bar');
+  host = document.createElement('tab-dock-bar');
   host.style.setProperty('inset', 'auto 0 0 0', 'important');
   const shadow = host.attachShadow({ mode: 'open' });
   mount = document.createElement('div');

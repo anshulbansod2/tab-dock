@@ -3,7 +3,7 @@
 // spot is stored as viewport fractions, shared by every site, and dropping the dock near its
 // default bottom-centre spot snaps it home.
 (() => {
-  const ns = (globalThis.HoverHelper ??= /** @type {HoverHelperNamespace} */ ({}));
+  const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const { POSITION_KEY } = ns.constants;
   const DRAG_THRESHOLD_PX = 4;
   const KEY_STEP_PX = 16;
