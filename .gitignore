@@ -3,3 +3,8 @@ coverage/
 dist/
 .DS_Store
 .superpowers/
+
+# Locally installed agent skills (npx modern-web-guidance install)
+.agents/
+.claude/
+skills-lock.json
