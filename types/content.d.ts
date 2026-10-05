@@ -8,6 +8,8 @@ interface ContentConstants {
     CLOSE: 'close';
     NEW: 'new';
     MOVE: 'move';
+    REGROUP: 'regroup';
+    NEW_GROUP: 'newgroup';
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;

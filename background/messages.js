@@ -1,5 +1,5 @@
 // @ts-check
-import { MSG } from './constants.js';
+import { MSG, UNGROUPED_ID } from './constants.js';
 
 /**
  * Narrows an untrusted port message to a ClientMessage; unknown fields are dropped.
@@ -8,10 +8,13 @@ import { MSG } from './constants.js';
  */
 export function parseClientMessage(raw) {
   if (typeof raw !== 'object' || raw === null) return null;
-  const { type, tabId, toIndex } = /** @type {Record<string, unknown>} */ (raw);
+  const { type, tabId, toIndex, groupId } = /** @type {Record<string, unknown>} */ (raw);
   if (type === MSG.NEW || type === MSG.HELLO) return { type };
   if ((type === MSG.ACTIVATE || type === MSG.CLOSE) && isTabId(tabId)) return { type, tabId };
   if (type === MSG.MOVE && isTabId(tabId) && isTabId(toIndex)) return { type, tabId, toIndex };
+  if (type === MSG.REGROUP && isTabId(tabId) && (isTabId(groupId) || groupId === UNGROUPED_ID))
+    return { type, tabId, groupId };
+  if (type === MSG.NEW_GROUP && isTabId(tabId)) return { type, tabId };
   return null;
 }
 

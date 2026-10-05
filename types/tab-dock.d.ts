@@ -20,6 +20,8 @@ interface Snapshot {
   /** null when the bar's tab is ungrouped (or pinned). */
   group: BarGroup | null;
   tabs: BarTab[];
+  /** Every group in the window, in strip order: where a tab can be moved to. */
+  groups: BarGroup[];
 }
 
 type ClientMessage =
@@ -28,7 +30,10 @@ type ClientMessage =
   | { type: 'close'; tabId: number }
   | { type: 'new' }
   /** toIndex is a position within the sender's group (or among the ungrouped tabs). */
-  | { type: 'move'; tabId: number; toIndex: number };
+  | { type: 'move'; tabId: number; toIndex: number }
+  /** groupId -1 takes the tab out of its group. */
+  | { type: 'regroup'; tabId: number; groupId: number }
+  | { type: 'newgroup'; tabId: number };
 
 type ServerMessage = { type: 'snapshot'; snapshot: Snapshot };
 

@@ -14,6 +14,11 @@ beforeEach(() => {
       makeTab({ id: 4, index: 2 }),
       makeTab({ id: 5, index: 3, pinned: true }),
     ],
+    groups: [
+      { id: 10, windowId: 1, title: 'Work', color: 'blue' },
+      { id: 20, windowId: 1, title: 'Read', color: 'red' },
+      { id: 30, windowId: 2, title: 'Other window', color: 'green' },
+    ],
   });
 });
 
@@ -105,6 +110,43 @@ describe('handleAction', () => {
       await handleAction({ type: 'move', tabId: 3, toIndex: 0 }, client, api);
       expect(api.tabs.move).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('moving a tab to another group', () => {
+    it('adds the tab to a group in the same window', async () => {
+      await handleAction({ type: 'regroup', tabId: 2, groupId: 20 }, client, api);
+      expect(api.tabs.group).toHaveBeenCalledWith({ groupId: 20, tabIds: 2 });
+    });
+
+    it('removes the tab from its group', async () => {
+      await handleAction({ type: 'regroup', tabId: 2, groupId: -1 }, client, api);
+      expect(api.tabs.ungroup).toHaveBeenCalledWith(2);
+    });
+
+    it('starts a new group with the tab, in its window', async () => {
+      await handleAction({ type: 'newgroup', tabId: 4 }, client, api);
+      expect(api.tabs.group).toHaveBeenCalledWith({
+        tabIds: 4,
+        createProperties: { windowId: 1 },
+      });
+    });
+
+    it.each([
+      ['a group in another window', { type: 'regroup', tabId: 2, groupId: 30 }],
+      ['a tab in another window', { type: 'regroup', tabId: 3, groupId: 20 }],
+      ['a tab in another window (new group)', { type: 'newgroup', tabId: 3 }],
+    ])('ignores %s', async (_name, msg) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await handleAction(msg, client, api);
+      expect(api.tabs.group).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('leaves pinned tabs alone (Chrome cannot group them)', async () => {
+      await handleAction({ type: 'regroup', tabId: 5, groupId: 20 }, client, api);
+      await handleAction({ type: 'newgroup', tabId: 5 }, client, api);
+      expect(api.tabs.group).not.toHaveBeenCalled();
     });
   });
 });

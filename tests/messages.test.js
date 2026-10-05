@@ -19,6 +19,18 @@ describe('parseClientMessage', () => {
       { type: 'move', tabId: 3, toIndex: 0 },
       { type: 'move', tabId: 3, toIndex: 0 },
     ],
+    [
+      { type: 'regroup', tabId: 3, groupId: 10 },
+      { type: 'regroup', tabId: 3, groupId: 10 },
+    ],
+    [
+      { type: 'regroup', tabId: 3, groupId: -1 },
+      { type: 'regroup', tabId: 3, groupId: -1 },
+    ],
+    [
+      { type: 'newgroup', tabId: 3 },
+      { type: 'newgroup', tabId: 3 },
+    ],
   ])('accepts %j', (raw, expected) => {
     expect(parseClientMessage(raw)).toEqual(expected);
   });
@@ -37,6 +49,10 @@ describe('parseClientMessage', () => {
     { type: 'move', tabId: 3 },
     { type: 'move', tabId: 3, toIndex: -1 },
     { type: 'move', tabId: 3, toIndex: 0.5 },
+    { type: 'regroup', tabId: 3 },
+    { type: 'regroup', tabId: 3, groupId: -2 },
+    { type: 'regroup', tabId: 3, groupId: '10' },
+    { type: 'newgroup' },
   ])('rejects %j', (raw) => {
     expect(parseClientMessage(raw)).toBeNull();
   });

@@ -18,6 +18,8 @@ export async function handleAction(msg, client, api) {
       await openTabInGroup(client.tabId, api);
     } else if (msg.type === MSG.MOVE) {
       await moveWithinGroup(msg, client.tabId, api);
+    } else if (msg.type === MSG.REGROUP || msg.type === MSG.NEW_GROUP) {
+      await changeGroup(msg, client.tabId, api);
     } else {
       await actOnTab(msg, client.tabId, api);
     }
@@ -99,4 +101,28 @@ async function keepGroup(tabId, moved, groupId, api) {
   if (!tab || tab.pinned || (tab.groupId ?? UNGROUPED_ID) === groupId) return;
   if (groupId === UNGROUPED_ID) await api.tabs.ungroup(tabId);
   else await api.tabs.group({ groupId, tabIds: tabId });
+}
+
+/**
+ * Moves a tab into another group of its window, out of its group, or into a new group.
+ * @param {Extract<ClientMessage, { type: 'regroup' | 'newgroup' }>} msg
+ * @param {number} senderTabId
+ * @param {typeof chrome} api
+ */
+async function changeGroup(msg, senderTabId, api) {
+  const [sender, target] = await Promise.all([api.tabs.get(senderTabId), api.tabs.get(msg.tabId)]);
+  if (target.windowId !== sender.windowId) {
+    logger.warn(`ignored cross-window ${msg.type}`);
+    return;
+  }
+  if (target.pinned) return; // Chrome can't group pinned tabs
+  if (msg.type === MSG.NEW_GROUP) {
+    await api.tabs.group({ tabIds: msg.tabId, createProperties: { windowId: target.windowId } });
+  } else if (msg.groupId === UNGROUPED_ID) {
+    await api.tabs.ungroup(msg.tabId);
+  } else if ((await api.tabGroups.get(msg.groupId)).windowId !== target.windowId) {
+    logger.warn('ignored move to a group in another window');
+  } else {
+    await api.tabs.group({ groupId: msg.groupId, tabIds: msg.tabId });
+  }
 }

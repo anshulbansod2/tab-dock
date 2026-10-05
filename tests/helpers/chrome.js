@@ -77,6 +77,11 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
     },
     tabGroups: {
       query: vi.fn(async ({ windowId }) => state.groups.filter((g) => g.windowId === windowId)),
+      get: vi.fn(async (id) => {
+        const group = state.groups.find((g) => g.id === id);
+        if (!group) throw new Error(`No group with id: ${id}.`);
+        return group;
+      }),
       onUpdated: createEvent(),
       onRemoved: createEvent(),
       onMoved: createEvent(),

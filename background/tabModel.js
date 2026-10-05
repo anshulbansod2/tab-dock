@@ -23,7 +23,30 @@ export function buildSnapshot({ tabs, groups, tabId }) {
     .filter((tab) => tab.id !== undefined && effectiveGroupId(tab) === groupId)
     .sort((a, b) => a.index - b.index)
     .map((tab) => toBarTab(tab, tabId));
-  return { group: describeGroup(groups, groupId), tabs: members };
+  return {
+    group: describeGroup(groups, groupId),
+    tabs: members,
+    groups: groupsInOrder(tabs, groups),
+  };
+}
+
+/**
+ * The window's groups in tab-strip order (by their first tab).
+ * @param {chrome.tabs.Tab[]} tabs
+ * @param {chrome.tabGroups.TabGroup[]} groups
+ * @returns {BarGroup[]}
+ */
+function groupsInOrder(tabs, groups) {
+  /** @type {Map<number, number>} */
+  const firstIndex = new Map();
+  for (const tab of tabs) {
+    const id = effectiveGroupId(tab);
+    if (id === UNGROUPED_ID) continue;
+    firstIndex.set(id, Math.min(firstIndex.get(id) ?? Infinity, tab.index));
+  }
+  return [...firstIndex.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([id]) => /** @type {BarGroup} */ (describeGroup(groups, id)));
 }
 
 /**

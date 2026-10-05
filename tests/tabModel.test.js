@@ -39,6 +39,20 @@ describe('buildSnapshot', () => {
     expect(snap.tabs.map((t) => t.id)).toEqual([7, 8]);
   });
 
+  it("lists the window's groups in strip order, as places a tab can move to", () => {
+    const tabs = [
+      makeTab({ id: 1, index: 0, groupId: 20 }),
+      makeTab({ id: 2, index: 1 }),
+      makeTab({ id: 3, index: 2, groupId: 10 }),
+      makeTab({ id: 4, index: 3, groupId: 20 }),
+    ];
+    const snap = buildSnapshot({ tabs, groups, tabId: 2 });
+    expect(snap.groups).toEqual([
+      { id: 20, title: 'Group', color: 'red' },
+      { id: 10, title: 'Research', color: 'blue' },
+    ]);
+  });
+
   it('labels a group with an empty title as "Group"', () => {
     const snap = buildSnapshot({ tabs: [makeTab({ id: 4, groupId: 20 })], groups, tabId: 4 });
     expect(snap.group).toEqual({ id: 20, title: 'Group', color: 'red' });
