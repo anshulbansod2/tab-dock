@@ -1,4 +1,4 @@
-# Hover Helper
+# Tab Dock
 
 A horizontal bar at the bottom of every page that lists the tabs in your current Chrome tab
 group — or all ungrouped tabs — so you can switch and close them without opening the vertical
@@ -46,7 +46,7 @@ script's sites, so it adds no install warning.
 npm ci
 npm run check          # lint + format check + typecheck + tests with coverage
 npm test               # tests only
-npm run package        # dist/hover-helper.zip
+npm run package        # dist/tab-dock.zip
 npm run icons          # regenerate icons
 ```
 
