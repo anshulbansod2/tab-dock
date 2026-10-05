@@ -82,7 +82,6 @@ function registerTabEvents(api, hub) {
   tabs.onDetached.addListener((_id, info) => hub.schedule(info.oldWindowId));
   tabs.onAttached.addListener((_id, info) => hub.schedule(info.newWindowId));
   // Prerender swaps a tab's id; the window isn't in the payload, so refresh all.
-  // Forget the old id so it doesn't block pushes to the new id if it reuses the same slot.
   tabs.onReplaced.addListener((newId, oldId) => {
     hub.forget(oldId);
     void hub.scheduleAll();

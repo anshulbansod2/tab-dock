@@ -27,9 +27,9 @@ export function createHub({
   /** @type {Map<number, ReturnType<typeof setTimeout>>} */
   const timers = new Map();
 
-  // In-memory snapshot keys (tabId → stringified snapshot without inlined favicons).
-  // When the service worker is killed, the map starts empty (everything gets pushed once).
-  // This is by design: at most one redundant push after a worker restart.
+  // What each bar last received, as JSON of its snapshot before favicons are inlined (small).
+  // A push that would change nothing is skipped. A restarted worker starts empty, which only
+  // costs one redundant push per bar.
   /** @type {Map<number, string>} */
   const lastSent = new Map();
 
@@ -48,65 +48,52 @@ export function createHub({
    * @returns {Promise<Snapshot>}
    */
   async function snapshotFor(client) {
-    // A hello means the bar may have reloaded and lost state; reset dedup so the next push is sent.
-    lastSent.delete(client.tabId);
+    lastSent.delete(client.tabId); // a (re)loaded bar knows nothing yet: never skip its next push
     const { tabs, groups } = await windowState(client.windowId);
     return favicons.inline(buildSnapshot({ tabs, groups, tabId: client.tabId }), tabs);
   }
 
   /**
-   * Pushes to every bar in the window, not just the visible one, so switching tabs shows a bar
-   * that is already current instead of one that catches up a round trip later. Hidden pages
-   * paint on their next animation frame, which Chrome holds until they are shown, so this costs
-   * one message per tab and no rendering. Favicons are inlined once per group.
+   * Pushes to every bar in the window whose content changed, not just the visible one, so
+   * switching tabs shows a bar that is already current instead of one that catches up a round
+   * trip later. Hidden pages paint on their next animation frame, which Chrome holds until they
+   * are shown, so a push costs one message and no rendering. Favicons are inlined once per
+   * group, and only for groups with a bar to update.
    * @param {number} windowId
    */
   async function pushToWindow(windowId) {
     const { tabs, groups } = await windowState(windowId);
     /** @type {Map<number, Promise<Snapshot>>} */
     const perGroup = new Map();
-    const reachable = tabs.filter(
-      (tab) => tab.id !== undefined && !tab.discarded && INJECTABLE_URL.test(tab.url ?? ''),
-    );
-    // Compute snapshot keys before inlining to keep them small (Chrome favIconUrl strings, not data: URIs).
-    /** @type {Map<number, string>} */
-    const keys = new Map();
-    reachable.forEach((tab) => {
-      const tabId = /** @type {number} */ (tab.id);
-      const built = buildSnapshot({ tabs, groups, tabId });
-      keys.set(tabId, JSON.stringify(built));
+    const pending = tabs.flatMap((tab) => {
+      if (tab.id === undefined || tab.discarded || !INJECTABLE_URL.test(tab.url ?? '')) return [];
+      const built = buildSnapshot({ tabs, groups, tabId: tab.id });
+      const key = JSON.stringify(built);
+      if (key === lastSent.get(tab.id)) return [];
+      const groupKey = built.group?.id ?? UNGROUPED_ID;
+      if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, tabs));
+      return [{ tab, key, shared: /** @type {Promise<Snapshot>} */ (perGroup.get(groupKey)) }];
     });
-    // Only inline favicons for groups that have at least one tab needing a push.
-    const groupsNeedingPush = new Map();
-    await Promise.all(
-      reachable.map(async (tab) => {
-        const tabId = /** @type {number} */ (tab.id);
-        const key = /** @type {string} */ (keys.get(tabId));
-        // Skip sending if the bar content has not changed.
-        if (key === lastSent.get(tabId)) return;
-        const built = buildSnapshot({ tabs, groups, tabId });
-        const groupKey = built.group?.id ?? UNGROUPED_ID;
-        if (!perGroup.has(groupKey)) {
-          // Only inline favicons for groups with at least one tab needing a push.
-          if (!groupsNeedingPush.has(groupKey)) groupsNeedingPush.set(groupKey, built);
-          perGroup.set(groupKey, favicons.inline(built, tabs));
-        }
-        const shared = /** @type {Snapshot} */ (await perGroup.get(groupKey));
-        const snapshot = {
-          ...shared,
-          tabs: shared.tabs.map((t) => ({ ...t, active: t.id === tabId })),
-        };
-        /** @type {ServerMessage} */
-        const message = { type: MSG.SNAPSHOT, snapshot };
-        try {
-          await api.tabs.sendMessage(tabId, message, { frameId: 0 });
-          // Record the key only after a successful send.
-          lastSent.set(tabId, key);
-        } catch {
-          if (tab.active) await injectBar(tab); // no bar is listening in the visible tab yet
-        }
-      }),
-    );
+    await Promise.all(pending.map(({ tab, key, shared }) => pushTo(tab, key, shared)));
+  }
+
+  /**
+   * @param {chrome.tabs.Tab} tab - has an id
+   * @param {string} key - recorded only once the bar has it, so a failed push is retried
+   * @param {Promise<Snapshot>} shared - the group's snapshot with favicons inlined
+   */
+  async function pushTo(tab, key, shared) {
+    const tabId = /** @type {number} */ (tab.id);
+    const group = await shared;
+    const snapshot = { ...group, tabs: group.tabs.map((t) => ({ ...t, active: t.id === tabId })) };
+    /** @type {ServerMessage} */
+    const message = { type: MSG.SNAPSHOT, snapshot };
+    try {
+      await api.tabs.sendMessage(tabId, message, { frameId: 0 });
+      lastSent.set(tabId, key);
+    } catch {
+      if (tab.active) await injectBar(tab); // no bar is listening in the visible tab yet
+    }
   }
 
   /**
@@ -151,7 +138,7 @@ export function createHub({
   }
 
   /**
-   * Forget the snapshot key for a removed tab so it doesn't block future pushes.
+   * Drops what a closed (or replaced) tab last received.
    * @param {number} tabId
    */
   function forget(tabId) {

@@ -30,7 +30,9 @@ listens in the capture phase on `window` can still see them; that is a browser l
 
 - No connection is held open: the service worker sleeps between tab events.
 - Every bar in the window is kept current, so switching tabs shows the right bar at once.
-  Hidden tabs only store the update; Chrome holds their repaint until they are shown.
+  Only bars whose content changed are sent anything (a title flicker in one group never
+  touches the others), and hidden tabs only store the update: Chrome holds their repaint
+  until they are shown.
 - Favicons come from Chrome's own cache as small inline images, cached per site (bounded),
   so pages never fetch — or learn about — other tabs' sites.
 
