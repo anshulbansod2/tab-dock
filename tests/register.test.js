@@ -101,4 +101,52 @@ describe('registerBackground', () => {
     await settle();
     expect(api.tabs.sendMessage).toHaveBeenCalledTimes(2);
   });
+
+  it('onRemoved forgets the tab so it does not block future pushes', async () => {
+    // Send to both tabs.
+    api.tabs.onCreated.emit(makeTab({ id: 5 }));
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Remove tab 1 (tab 1 is forgotten).
+    api.tabs.onRemoved.emit(1, { windowId: 1, isWindowClosing: false });
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Push again without changes - tab 2 is skipped (nothing changed).
+    api.tabs.onUpdated.emit(2, { title: 'Same' }, api.state.tabs[1]);
+    await settle();
+    // No sends because the only remaining tab (tab 2) has an unchanged snapshot.
+    expect(api.tabs.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('onReplaced forgets the old tab id so it does not block the new id', async () => {
+    // Send to both tabs first.
+    api.tabs.onCreated.emit(makeTab({ id: 5 }));
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Prerender replaces tab 1 with tab 10 (tab 1 is forgotten, tab 10 is new).
+    // For the test, update the state to reflect the replacement: remove tab 1, add tab 10.
+    api.state.tabs[0] = makeTab({ id: 10, active: true, groupId: 10, status: 'complete' });
+    api.tabs.onReplaced.emit(10, 1);
+    await flushPromises();
+    await settle();
+    // scheduleAll queries active tabs, gets [10], and pushes to [10, 2] (5 unchanged, skipped).
+    const sentTo = api.tabs.sendMessage.mock.calls.map(([tabId]) => tabId);
+    expect(sentTo.sort((a, b) => a - b)).toEqual([2, 10]);
+  });
+
+  it('hello resets dedup so the next push is never skipped', async () => {
+    // Push to both tabs.
+    api.tabs.onCreated.emit(makeTab({ id: 5 }));
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Send hello from tab 1.
+    deliver({ type: 'hello' }, createSender({ tabId: 1, windowId: 1 }));
+    await flushPromises();
+    // Push again without changes.
+    api.tabs.onUpdated.emit(2, { title: 'Same' }, api.state.tabs[1]);
+    await settle();
+    // Tab 1 gets pushed again (hello reset dedup), tab 2 is skipped.
+    const sentTo = api.tabs.sendMessage.mock.calls.map(([tabId]) => tabId);
+    expect(sentTo).toEqual([1]);
+  });
 });

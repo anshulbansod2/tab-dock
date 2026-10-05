@@ -69,7 +69,10 @@ function onClientMessage(raw, sender, sendResponse, hub, api) {
 function registerTabEvents(api, hub) {
   const { tabs } = api;
   tabs.onCreated.addListener((tab) => hub.schedule(tab.windowId));
-  tabs.onRemoved.addListener((_id, info) => hub.schedule(info.windowId));
+  tabs.onRemoved.addListener((id, info) => {
+    hub.forget(id);
+    hub.schedule(info.windowId);
+  });
   tabs.onMoved.addListener((_id, info) => hub.schedule(info.windowId));
   // Also heals tabs opened before install: the push to them fails and the bar is injected.
   tabs.onActivated.addListener((info) => hub.schedule(info.windowId));
@@ -79,7 +82,11 @@ function registerTabEvents(api, hub) {
   tabs.onDetached.addListener((_id, info) => hub.schedule(info.oldWindowId));
   tabs.onAttached.addListener((_id, info) => hub.schedule(info.newWindowId));
   // Prerender swaps a tab's id; the window isn't in the payload, so refresh all.
-  tabs.onReplaced.addListener(() => void hub.scheduleAll());
+  // Forget the old id so it doesn't block pushes to the new id if it reuses the same slot.
+  tabs.onReplaced.addListener((newId, oldId) => {
+    hub.forget(oldId);
+    void hub.scheduleAll();
+  });
 }
 
 /**

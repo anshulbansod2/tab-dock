@@ -27,6 +27,12 @@ export function createHub({
   /** @type {Map<number, ReturnType<typeof setTimeout>>} */
   const timers = new Map();
 
+  // In-memory snapshot keys (tabId → stringified snapshot without inlined favicons).
+  // When the service worker is killed, the map starts empty (everything gets pushed once).
+  // This is by design: at most one redundant push after a worker restart.
+  /** @type {Map<number, string>} */
+  const lastSent = new Map();
+
   /** @param {number} windowId */
   async function windowState(windowId) {
     const [tabs, groups] = await Promise.all([
@@ -42,6 +48,8 @@ export function createHub({
    * @returns {Promise<Snapshot>}
    */
   async function snapshotFor(client) {
+    // A hello means the bar may have reloaded and lost state; reset dedup so the next push is sent.
+    lastSent.delete(client.tabId);
     const { tabs, groups } = await windowState(client.windowId);
     return favicons.inline(buildSnapshot({ tabs, groups, tabId: client.tabId }), tabs);
   }
@@ -60,13 +68,30 @@ export function createHub({
     const reachable = tabs.filter(
       (tab) => tab.id !== undefined && !tab.discarded && INJECTABLE_URL.test(tab.url ?? ''),
     );
+    // Compute snapshot keys before inlining to keep them small (Chrome favIconUrl strings, not data: URIs).
+    /** @type {Map<number, string>} */
+    const keys = new Map();
+    reachable.forEach((tab) => {
+      const tabId = /** @type {number} */ (tab.id);
+      const built = buildSnapshot({ tabs, groups, tabId });
+      keys.set(tabId, JSON.stringify(built));
+    });
+    // Only inline favicons for groups that have at least one tab needing a push.
+    const groupsNeedingPush = new Map();
     await Promise.all(
       reachable.map(async (tab) => {
         const tabId = /** @type {number} */ (tab.id);
+        const key = /** @type {string} */ (keys.get(tabId));
+        // Skip sending if the bar content has not changed.
+        if (key === lastSent.get(tabId)) return;
         const built = buildSnapshot({ tabs, groups, tabId });
-        const key = built.group?.id ?? UNGROUPED_ID;
-        if (!perGroup.has(key)) perGroup.set(key, favicons.inline(built, tabs));
-        const shared = /** @type {Snapshot} */ (await perGroup.get(key));
+        const groupKey = built.group?.id ?? UNGROUPED_ID;
+        if (!perGroup.has(groupKey)) {
+          // Only inline favicons for groups with at least one tab needing a push.
+          if (!groupsNeedingPush.has(groupKey)) groupsNeedingPush.set(groupKey, built);
+          perGroup.set(groupKey, favicons.inline(built, tabs));
+        }
+        const shared = /** @type {Snapshot} */ (await perGroup.get(groupKey));
         const snapshot = {
           ...shared,
           tabs: shared.tabs.map((t) => ({ ...t, active: t.id === tabId })),
@@ -75,6 +100,8 @@ export function createHub({
         const message = { type: MSG.SNAPSHOT, snapshot };
         try {
           await api.tabs.sendMessage(tabId, message, { frameId: 0 });
+          // Record the key only after a successful send.
+          lastSent.set(tabId, key);
         } catch {
           if (tab.active) await injectBar(tab); // no bar is listening in the visible tab yet
         }
@@ -123,5 +150,13 @@ export function createHub({
     }
   }
 
-  return { snapshotFor, schedule, scheduleAll };
+  /**
+   * Forget the snapshot key for a removed tab so it doesn't block future pushes.
+   * @param {number} tabId
+   */
+  function forget(tabId) {
+    lastSent.delete(tabId);
+  }
+
+  return { snapshotFor, schedule, scheduleAll, forget };
 }

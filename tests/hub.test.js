@@ -164,4 +164,90 @@ describe('createHub', () => {
     await settle();
     expect(error).toHaveBeenCalledWith('[tab-dock]', 'push failed', expect.any(Error));
   });
+
+  it('skips an unchanged second push to a tab', async () => {
+    hub.schedule(1);
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Push again without any changes.
+    hub.schedule(1);
+    await settle();
+    // No sends because nothing changed.
+    expect(api.tabs.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('pushes again if a title changes', async () => {
+    hub.schedule(1);
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Change a tab's title.
+    api.state.tabs[0].title = 'New Title';
+    hub.schedule(1);
+    await settle();
+    // Both tabs in the group get the updated snapshot.
+    expect(pushedTo()).toEqual([1, 2]);
+  });
+
+  it('retries a failed send on the next push', async () => {
+    api.tabs.sendMessage.mockRejectedValueOnce(new Error('Receiving end does not exist.'));
+    hub.schedule(1);
+    await settle();
+    // Tab 1 fails, tab 2 succeeds. Tab 1 failure is not recorded in lastSent.
+    expect(pushedTo()).toEqual([1, 2]);
+    api.tabs.sendMessage.mockClear();
+    api.tabs.sendMessage.mockResolvedValue(undefined);
+    hub.schedule(1);
+    await settle();
+    // Tab 1 is retried (failed send not recorded), tab 2 is skipped (unchanged).
+    expect(pushedTo()).toEqual([1]);
+    // If something changes, both tabs are pushed (tab 1 successful this time, tab 2 updated).
+    api.tabs.sendMessage.mockClear();
+    api.state.tabs[0].title = 'Changed';
+    hub.schedule(1);
+    await settle();
+    expect(pushedTo()).toEqual([1, 2]);
+  });
+
+  it('hello resets the dedup map so the next push is sent', async () => {
+    hub.schedule(1);
+    await settle();
+    // Get a hello from tab 1.
+    await hub.snapshotFor({ tabId: 1, windowId: 1 });
+    api.tabs.sendMessage.mockClear();
+    // Push again without any changes.
+    hub.schedule(1);
+    await settle();
+    // Tab 1 gets pushed again (hello reset the dedup key), tab 2 is skipped.
+    expect(pushedTo()).toEqual([1]);
+  });
+
+  it('forget removes a tab from the dedup map', async () => {
+    hub.schedule(1);
+    await settle();
+    api.tabs.sendMessage.mockClear();
+    // Forget tab 1 (as if it was removed).
+    hub.forget(1);
+    hub.schedule(1);
+    await settle();
+    // Tab 1 gets pushed again even though nothing changed (it was forgotten).
+    // Tab 2 is still skipped.
+    expect(pushedTo()).toEqual([1]);
+  });
+
+  it('pushes only to tabs in a group that changed', async () => {
+    // Create a second group in the same window.
+    api.state.tabs.push(makeTab({ id: 4, index: 2, groupId: 11, windowId: 1 }));
+    api.state.groups.push({ id: 11, title: 'Fun', color: 'green', windowId: 1 });
+    hub.schedule(1);
+    await settle();
+    const callsPerGroup = api.tabs.sendMessage.mock.calls.map(([tabId]) => tabId);
+    expect(callsPerGroup.sort()).toEqual([1, 2, 4]);
+    api.tabs.sendMessage.mockClear();
+    // Change a title in group 10.
+    api.state.tabs[0].title = 'New Title';
+    hub.schedule(1);
+    await settle();
+    // Only group 10's tabs are pushed; group 11's tab is skipped.
+    expect(pushedTo()).toEqual([1, 2]);
+  });
 });
