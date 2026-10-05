@@ -131,10 +131,10 @@
     /** @param {Event} event */
     const onToggle = (event) => {
       const closed = /** @type {ToggleEvent} */ (event).newState === 'closed';
-      if (!closed || !host.isConnected || !host.hasAttribute('popover') || isOpen(host)) return;
+      if (!closed || !host.isConnected || !host.hasAttribute('popover')) return;
       if (stale() || !allowed()) return;
       ns.logger.warn('page closed the bar; reopening it');
-      showInTopLayer(host);
+      reopen(host);
     };
     return {
       start() {
@@ -166,15 +166,18 @@
   }
 
   /**
-   * A toggle event can arrive after the bar was already reopened (e.g. the one queued by a
-   * removal that was healed), and reopening an open popover throws.
+   * Shows the closed popover again. Unlike the first show, a failure keeps the popover
+   * attribute: Chrome (since the popover API's revision) ignores showing an open popover, so
+   * a quick close-and-reopen is harmless, and an older engine that throws here is better off
+   * still owning its top-layer slot. (No :popover-open check: jsdom's selector engine runs
+   * out of memory evaluating it on Linux, which crashed CI.)
    * @param {HTMLElement} host
    */
-  function isOpen(host) {
+  function reopen(host) {
     try {
-      return host.matches(':popover-open');
-    } catch {
-      return false; // engines without the popover API
+      host.showPopover();
+    } catch (err) {
+      ns.logger.warn('reopening failed', err);
     }
   }
 

@@ -150,6 +150,18 @@ describe('mountBar', () => {
       expect(warn).toHaveBeenCalledWith('[tab-dock]', 'page closed the bar; reopening it');
     });
 
+    it('keeps its top-layer slot if reopening throws (an older Chrome, already open)', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      remount();
+      await settle();
+      showPopover.mockImplementationOnce(() => {
+        throw new DOMException('Already open', 'InvalidStateError');
+      });
+      mounted.host.dispatchEvent(Object.assign(new Event('toggle'), { newState: 'closed' }));
+      expect(mounted.host.getAttribute('popover')).toBe('manual');
+      expect(warn).toHaveBeenCalledWith('[tab-dock]', 'reopening failed', expect.any(DOMException));
+    });
+
     it('falls back to fixed positioning if showPopover throws', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       showPopover.mockImplementationOnce(() => {
