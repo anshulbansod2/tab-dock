@@ -202,16 +202,13 @@
 .hh-card-caption { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px 10px; }
 .hh-card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hh-card-meta { color: var(--hh-muted); font-size: 12px; }
-/* A tab out in a mini window: still listed, marked as away. */
-.hh-chip--away { opacity: 0.6; }
-.hh-chip--away .hh-title { font-style: italic; }
-.hh-bar--peek { padding: 4px; }
-.hh-return {
-  all: unset; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px;
-  border-radius: 10px; cursor: pointer; font-weight: 600; white-space: nowrap;
+/* Back to the tab a hover card was opened from: leads the dock, names that tab. */
+.hh-btn.hh-back {
+  display: inline-flex; align-items: center; width: auto; max-width: 200px; gap: 4px;
+  padding: 0 10px 0 6px; margin-right: 4px; border-radius: 10px;
+  color: var(--hh-fg); background: var(--hh-chip); font-weight: 600;
 }
-.hh-return:hover { background: var(--hh-chip-hover); }
-.hh-return:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 1px; }
+.hh-back-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 /* Solid surface where blur is unavailable or the user asks for less transparency. */
 @supports not (backdrop-filter: blur(1px)) {
   .hh-bar, .hh-pill, .hh-menu, .hh-drop-label, .hh-card { background: var(--hh-solid); }
@@ -224,7 +221,8 @@
 /* Narrow windows: keep the colour dot, drop the group name. */
 @media (max-width: 520px) {
   .hh-label { padding: 0 8px; }
-  .hh-label-text { display: none; }
+  .hh-label-text, .hh-back-text { display: none; }
+  .hh-btn.hh-back { padding: 0; width: 30px; justify-content: center; }
 }
 `;
 })();

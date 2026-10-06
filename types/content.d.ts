@@ -40,7 +40,7 @@ interface BarHandlers {
   onToggleCollapse(): void;
   onMove(tabId: number, toIndex: number): void;
   onMenu(tabId: number, point: { x: number; y: number }, tab: HTMLElement): void;
-  /** A peeked tab's mini-window dock: put it back. */
+  /** The Back button, on a tab opened off a hover card. */
   onReturn(): void;
 }
 
@@ -145,7 +145,6 @@ interface TabDockNamespace {
   dom: Readonly<{
     buildBar(view: BarView): HTMLElement;
     buildPill(view: BarView): HTMLElement;
-    buildPeekBar(view: BarView): HTMLElement;
   }>;
   render(mount: HTMLElement, view: BarView): void;
   bindEvents(mount: HTMLElement, handlers: BarHandlers): void;
@@ -162,7 +161,7 @@ interface TabDockNamespace {
     layer: HTMLElement;
     win: Window;
     request(msg: ClientMessage): Promise<unknown>;
-    onPeek(tabId: number, bounds: PeekBounds): void;
+    onPeek(tabId: number): void;
     now?: () => number;
   }): { hide(): void; dispose(): void };
   keepPreviewFresh(options: {

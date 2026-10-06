@@ -11,7 +11,6 @@
   const FRESH_MS = 30_000;
   const REACH_MS = 400; // from the chip to the card, across the dock edge and the gap
   const CARD = { edge: 8, caption: 56 };
-  const PEEK = { width: 320, height: 240, titleBar: 28 };
 
   ns.bindPreview = ({ mount, ...deps }) => {
     /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -77,7 +76,7 @@
    * The card itself: asks the background for the tab's last screenshot, shows it by the chip,
    * and opens the tab live when clicked. Replies to a closed or superseded card are dropped.
    * @param {{ layer: HTMLElement, win: Window, request: Connection['request'],
-   *   onPeek: (tabId: number, bounds: PeekBounds) => void, now?: () => number,
+   *   onPeek: (tabId: number) => void, now?: () => number,
    *   onEnter: () => void, onLeave: (event: MouseEvent) => void }} deps
    */
   function createCard({ layer, win, request, onPeek, now = Date.now, onEnter, onLeave }) {
@@ -103,9 +102,8 @@
         el.addEventListener('pointerover', onEnter);
         el.addEventListener('pointerout', onLeave);
         el.addEventListener('click', () => {
-          const bounds = peekBounds(el.getBoundingClientRect(), win);
           hide();
-          onPeek(tabId, bounds);
+          onPeek(tabId);
         });
         layer.replaceChildren(el);
         const dock = chip.closest('.hh-bar') ?? chip;
@@ -131,9 +129,8 @@
     return { dispose: () => clearTimeout(timer) };
   };
 
-  /** Neither the current tab nor one already out in a mini window. @param {HTMLElement} chip */
-  const previewable = (chip) =>
-    !chip.querySelector('[aria-current="page"]') && !chip.classList.contains('hh-chip--away');
+  /** Any tab but the current one. @param {HTMLElement} chip */
+  const previewable = (chip) => !chip.querySelector('[aria-current="page"]');
 
   /**
    * @param {string} title
@@ -202,32 +199,5 @@
     card.style.setProperty('--hh-card-ratio', `${win.innerWidth} / ${win.innerHeight}`);
     if (above) card.style.setProperty('bottom', `${Math.round(win.innerHeight - dock.top)}px`);
     else card.style.setProperty('top', `${Math.round(dock.bottom)}px`);
-  }
-
-  /**
-   * Screen bounds for the mini window, so its page lands where the card was (the window's
-   * own title bar sits just above), at least a usable size and kept on screen.
-   * @param {Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>} card
-   * @param {Window} win
-   * @returns {PeekBounds}
-   */
-  function peekBounds(card, win) {
-    const chromeLeft = Math.max(0, (win.outerWidth - win.innerWidth) / 2);
-    const chromeTop = Math.max(0, win.outerHeight - win.innerHeight);
-    const width = Math.max(PEEK.width, Math.round(card.width));
-    const height = Math.max(PEEK.height, Math.round(card.height) + PEEK.titleBar);
-    let left = Math.round(win.screenX + chromeLeft + card.left);
-    let top = Math.round(win.screenY + chromeTop + card.top - PEEK.titleBar);
-    const {
-      availLeft = 0,
-      availTop = 0,
-      availWidth,
-      availHeight,
-    } = /** @type {Screen & { availLeft?: number, availTop?: number }} */ (win.screen);
-    if (availWidth > 0 && availHeight > 0) {
-      left = Math.min(Math.max(availLeft, left), availLeft + availWidth - width);
-      top = Math.min(Math.max(availTop, top), availTop + availHeight - height);
-    }
-    return { left, top, width, height };
   }
 })();

@@ -14,46 +14,27 @@ import {
  * @param {chrome.tabs.Tab[]} input.tabs - Every tab in the window.
  * @param {chrome.tabGroups.TabGroup[]} input.groups - Every group in the window.
  * @param {number} input.tabId - The tab the bar is rendered in.
- * @param {{ tab: chrome.tabs.Tab, origin: PeekOrigin }[]} [input.away] - tabs from this window
- *   that are out in a mini window (peeked); they keep their place in their group's bar.
- * @param {chrome.tabGroups.TabGroup | null} [input.home] - set when the bar's own tab is
- *   peeked: the group it returns to (null: ungrouped).
+ * @param {Trail | null} [input.trail] - the window's way back from a tab opened off a hover
+ *   card; that tab's bar offers it, while the tab it came from is still open.
  * @returns {Snapshot}
  */
-export function buildSnapshot({ tabs, groups, tabId, away = [], home }) {
+export function buildSnapshot({ tabs, groups, tabId, trail }) {
   const self = tabs.find((tab) => tab.id === tabId);
   const groupId = self ? effectiveGroupId(self) : UNGROUPED_ID;
+  const members = tabs
+    .filter((tab) => tab.id !== undefined && effectiveGroupId(tab) === groupId)
+    .sort((a, b) => a.index - b.index)
+    .map((tab) => toBarTab(tab, tabId));
   /** @type {Snapshot} */
   const snapshot = {
     group: describeGroup(groups, groupId),
-    tabs: membersOf({ tabs, away, groupId, tabId }),
+    tabs: members,
     groups: groupsInOrder(tabs, groups),
   };
-  if (home !== undefined) snapshot.peek = { home: home && describeGroup([home], home.id) };
+  const from = trail?.to === tabId ? tabs.find((tab) => tab.id === trail.from) : undefined;
+  if (from?.id !== undefined)
+    snapshot.back = { tabId: from.id, title: toBarTab(from, tabId).title };
   return snapshot;
-}
-
-/**
- * The group's tabs in strip order, with its peeked-away tabs back in their old spots.
- * @param {object} input
- * @param {chrome.tabs.Tab[]} input.tabs
- * @param {{ tab: chrome.tabs.Tab, origin: PeekOrigin }[]} input.away
- * @param {number} input.groupId
- * @param {number} input.tabId
- * @returns {BarTab[]}
- */
-function membersOf({ tabs, away, groupId, tabId }) {
-  const here = tabs
-    .filter((tab) => tab.id !== undefined && effectiveGroupId(tab) === groupId)
-    .map((tab) => ({ at: tab.index, bar: toBarTab(tab, tabId) }));
-  const out = away
-    .filter(({ tab, origin }) => tab.id !== undefined && origin.groupId === groupId)
-    // Half a step earlier: the tabs after it slid left into its old index.
-    .map(({ tab, origin }) => ({
-      at: origin.index - 0.5,
-      bar: { ...toBarTab(tab, tabId), away: true },
-    }));
-  return [...here, ...out].sort((a, b) => a.at - b.at).map(({ bar }) => bar);
 }
 
 /**

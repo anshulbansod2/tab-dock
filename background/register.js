@@ -5,8 +5,8 @@ import { createHub } from './hub.js';
 import { logger } from './logger.js';
 import { identifySender, parseClientMessage } from './messages.js';
 import { migrateStorage } from './migrate.js';
-import { createPeeks } from './peek.js';
 import { createPreviews } from './previews.js';
+import { createReturns } from './returns.js';
 
 /** @typedef {import('./hub.js').Hub} Hub */
 
@@ -21,11 +21,11 @@ const RELEVANT_UPDATES = ['title', 'favIconUrl', 'groupId', 'pinned', 'url'];
  * @returns {Hub}
  */
 export function registerBackground(api, { shrink } = {}) {
-  const peeks = createPeeks({ api });
+  const returns = createReturns({ store: api.storage.session });
   const previews = createPreviews({ api, shrink });
-  const hub = createHub({ api, peeks });
+  const hub = createHub({ api, returns });
   /** @type {Services} */
-  const services = { hub, api, peeks, previews };
+  const services = { hub, api, returns, previews };
   api.runtime.onMessage.addListener((raw, sender, sendResponse) =>
     onClientMessage(raw, sender, sendResponse, services),
   );
@@ -35,14 +35,11 @@ export function registerBackground(api, { shrink } = {}) {
     void hub.scheduleAll();
   });
   registerTabEvents(services);
-  // A mini window can't stay on top, so using its home window again would bury it: the tab
-  // goes back to its dock instead, the way a popover closes on an outside click.
-  api.windows.onFocusChanged.addListener((windowId) => void returnPeeksTo(windowId, peeks));
   registerGroupEvents(api, hub);
   return hub;
 }
 
-/** @typedef {{ hub: Hub, api: typeof chrome, peeks: Peeks, previews: ReturnType<typeof createPreviews> }} Services */
+/** @typedef {{ hub: Hub, api: typeof chrome, returns: Returns, previews: ReturnType<typeof createPreviews> }} Services */
 
 /**
  * @param {unknown} raw
@@ -52,7 +49,7 @@ export function registerBackground(api, { shrink } = {}) {
  * @returns {boolean} true when sendResponse will be called asynchronously
  */
 function onClientMessage(raw, sender, sendResponse, services) {
-  const { api, hub, peeks } = services;
+  const { api, hub, returns } = services;
   const client = identifySender(sender, api.runtime.id);
   const msg = client && parseClientMessage(raw);
   if (!client || !msg) {
@@ -66,7 +63,7 @@ function onClientMessage(raw, sender, sendResponse, services) {
     return true; // keeps the channel open for the async sendResponse
   }
   if (msg.type === MSG.SEEN) services.previews.schedule(client.windowId);
-  else void handleAction(msg, client, api, peeks);
+  else void handleAction(msg, client, api, returns);
   return false;
 }
 
@@ -85,45 +82,36 @@ async function reply(answer, sendResponse, type) {
 }
 
 /**
- * A tab's hover-card screenshot, for bars in its own window (or the window it was peeked from).
+ * A tab's hover-card screenshot, only for bars in its own window.
  * @param {number} tabId
  * @param {ClientInfo} client
  * @param {Services} services
  */
-async function previewFor(tabId, client, { api, peeks, previews }) {
+async function previewFor(tabId, client, { api, previews }) {
   const tab = await api.tabs.get(tabId).catch(() => null);
-  if (!tab) return null;
-  const mine =
-    tab.windowId === client.windowId || (await peeks.originOf(tabId))?.windowId === client.windowId;
-  return mine ? previews.get(tabId) : null;
-}
-
-/**
- * @param {number} windowId - the window that just took focus (none: another app has it)
- * @param {Peeks} peeks
- */
-async function returnPeeksTo(windowId, peeks) {
-  if (windowId < 0) return;
-  for (const [tabId, origin] of await peeks.all())
-    if (origin.windowId === windowId) await peeks.back(tabId);
+  return tab?.windowId === client.windowId ? previews.get(tabId) : null;
 }
 
 /**
  * @param {Services} services
  */
-function registerTabEvents({ api, hub, peeks, previews }) {
+function registerTabEvents({ api, hub, returns, previews }) {
   const { tabs } = api;
   tabs.onCreated.addListener((tab) => hub.schedule(tab.windowId));
   tabs.onRemoved.addListener((id, info) => {
     hub.forget(id);
     hub.schedule(info.windowId);
-    void forgetClosed(id, { hub, peeks, previews });
+    void forgetClosed(id, { hub, returns, previews });
   });
   tabs.onMoved.addListener((_id, info) => hub.schedule(info.windowId));
   // Also heals tabs opened before install: the push to them fails and the bar is injected.
   tabs.onActivated.addListener((info) => {
     hub.schedule(info.windowId);
     previews.schedule(info.windowId); // the hover card shows the tab as last seen
+    // Leaving a tab opened off a hover card ends its way back (its Back button goes).
+    void returns.activated(info.windowId, info.tabId).then((ended) => {
+      if (ended) hub.schedule(info.windowId);
+    });
   });
   tabs.onUpdated.addListener((_id, change, tab) => {
     if (RELEVANT_UPDATES.some((key) => key in change)) hub.schedule(tab.windowId);
@@ -139,14 +127,13 @@ function registerTabEvents({ api, hub, peeks, previews }) {
 }
 
 /**
- * A closed tab's screenshot goes, and if it was peeked, its home window's bar drops its chip.
+ * A closed tab's screenshot goes, and so does any way back it was part of.
  * @param {number} tabId
- * @param {Pick<Services, 'hub' | 'peeks' | 'previews'>} services
+ * @param {Pick<Services, 'hub' | 'returns' | 'previews'>} services
  */
-async function forgetClosed(tabId, { hub, peeks, previews }) {
-  const origin = await peeks.originOf(tabId);
-  await Promise.all([peeks.forget(tabId), previews.forget(tabId)]);
-  if (origin) hub.schedule(origin.windowId);
+async function forgetClosed(tabId, { hub, returns, previews }) {
+  const [ended] = await Promise.all([returns.closed(tabId), previews.forget(tabId)]);
+  ended.forEach(hub.schedule);
 }
 
 /**

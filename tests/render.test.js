@@ -267,27 +267,21 @@ describe('styles', () => {
   });
 });
 
-describe('render (peeking)', () => {
-  it('marks a tab that is out in a mini window', () => {
-    renderTabs([tab(1, { active: true }), tab(2, { away: true })]);
-    const away = mount.querySelector('.hh-tab[data-tab-id="2"]');
-    expect(away.closest('.hh-chip').classList).toContain('hh-chip--away');
-    expect(away.getAttribute('aria-description')).toBe('Open in a mini window');
-  });
-
-  it("turns a peeked tab's own dock into a Return button", () => {
+describe('render (the way back)', () => {
+  it('leads the dock with a Back button naming the tab a card was opened from', () => {
     ns.render(mount, {
-      snapshot: { ...grouped, peek: { home: grouped.group } },
+      snapshot: { ...grouped, back: { tabId: 7, title: 'Inbox' } },
       collapsed: false,
     });
-    expect(mount.querySelector('.hh-tabs')).toBeNull();
-    const back = mount.querySelector('[data-action="return"]');
-    expect(back.textContent).toBe('Return to Research');
-    expect(mount.querySelector('.hh-bar').style.getPropertyValue('--hh-group')).toBe('#1a73e8');
+    const back = mount.querySelector('.hh-bar > [data-action="return"]');
+    expect(mount.querySelector('.hh-bar').firstElementChild).toBe(back);
+    expect(back.textContent).toBe('Inbox');
+    expect(back.getAttribute('aria-label')).toBe('Back to Inbox');
+    expect(back.querySelector('svg')).not.toBeNull();
   });
 
-  it('says "Ungrouped" for a peeked tab with no group, even when collapsed', () => {
-    ns.render(mount, { snapshot: { ...grouped, peek: { home: null } }, collapsed: true });
-    expect(mount.querySelector('[data-action="return"]').textContent).toBe('Return to Ungrouped');
+  it('shows no Back button otherwise', () => {
+    ns.render(mount, { snapshot: grouped, collapsed: false });
+    expect(mount.querySelector('[data-action="return"]')).toBeNull();
   });
 });

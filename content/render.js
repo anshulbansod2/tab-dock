@@ -19,12 +19,11 @@
     reuseFavicons(mount, root);
     mount.replaceChildren(root);
     restoreFocus(mount, focus);
-    if (!view.collapsed && !view.snapshot.peek) restoreScroll(mount, previousScroll);
+    if (!view.collapsed) restoreScroll(mount, previousScroll);
   };
 
-  /** @param {BarView} view - a peeked tab's dock is only ever its Return button */
+  /** @param {BarView} view */
   function dockFor(view) {
-    if (view.snapshot.peek) return ns.dom.buildPeekBar(view);
     return view.collapsed ? ns.dom.buildPill(view) : ns.dom.buildBar(view);
   }
 

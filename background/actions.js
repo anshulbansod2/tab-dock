@@ -10,63 +10,78 @@ import { effectiveGroupId } from './tabModel.js';
  * @param {Exclude<ClientMessage, { type: 'hello' | 'preview' | 'seen' }>} msg
  * @param {ClientInfo} client
  * @param {typeof chrome} api
- * @param {Peeks} [peeks]
+ * @param {Pick<Returns, 'remember' | 'get'>} [returns]
  * @returns {Promise<void>}
  */
-export async function handleAction(msg, client, api, peeks) {
+export async function handleAction(msg, client, api, returns) {
   try {
-    if (msg.type === MSG.PEEK) {
-      await openPeek(msg, client.tabId, api, peeks);
-    } else if (msg.type === MSG.RETURN) {
-      await peeks?.back(client.tabId);
-    } else if (msg.type === MSG.NEW) {
-      await openTabInGroup(client.tabId, api);
-    } else if (msg.type === MSG.MOVE) {
-      await moveWithinGroup(msg, client.tabId, api);
-    } else if (msg.type === MSG.REGROUP || msg.type === MSG.NEW_GROUP) {
-      await changeGroup(msg, client.tabId, api);
-    } else {
-      await actOnTab(msg, client.tabId, api, peeks);
-    }
+    if (msg.type === MSG.PEEK) await openInPlace(msg.tabId, client, api, returns);
+    else if (msg.type === MSG.RETURN) await goBack(client, api, returns);
+    else await act(msg, client, api);
   } catch (err) {
     if (!isStaleTabError(err)) logger.error(`${msg.type} failed`, err);
   }
 }
 
 /**
- * Activates or closes a tab, but only within the sender's current window. A tab peeked out of
- * that window still counts: activating it brings its mini window forward.
- * @param {Extract<ClientMessage, { type: 'activate' | 'close' }>} msg
- * @param {number} senderTabId
+ * Switches to a tab opened off a hover card, remembering the way back. Only another tab of the
+ * sender's own window.
+ * @param {number} tabId
+ * @param {ClientInfo} client
  * @param {typeof chrome} api
- * @param {Peeks} [peeks]
+ * @param {Pick<Returns, 'remember'>} [returns]
  */
-async function actOnTab(msg, senderTabId, api, peeks) {
-  const [sender, target] = await Promise.all([api.tabs.get(senderTabId), api.tabs.get(msg.tabId)]);
-  const away = target.windowId !== sender.windowId;
-  if (away && (await peeks?.originOf(msg.tabId))?.windowId !== sender.windowId) {
-    logger.warn(`ignored cross-window ${msg.type}`);
-    return;
-  }
-  if (msg.type === MSG.CLOSE) await api.tabs.remove(msg.tabId);
-  else if (away) await peeks?.focus(msg.tabId);
-  else await api.tabs.update(msg.tabId, { active: true });
-}
-
-/**
- * Moves another tab of the sender's window into a mini window.
- * @param {Extract<ClientMessage, { type: 'peek' }>} msg
- * @param {number} senderTabId
- * @param {typeof chrome} api
- * @param {Peeks} [peeks]
- */
-async function openPeek(msg, senderTabId, api, peeks) {
-  const [sender, target] = await Promise.all([api.tabs.get(senderTabId), api.tabs.get(msg.tabId)]);
-  if (target.windowId !== sender.windowId || target.id === sender.id) {
+async function openInPlace(tabId, client, api, returns) {
+  const target = await api.tabs.get(tabId);
+  if (target.windowId !== client.windowId || tabId === client.tabId) {
     logger.warn('ignored peek outside the bar');
     return;
   }
-  await peeks?.open(msg.tabId, msg.bounds);
+  await returns?.remember(client.windowId, { from: client.tabId, to: tabId });
+  await api.tabs.update(tabId, { active: true });
+}
+
+/**
+ * The Back button: from the opened tab to the one it was opened from.
+ * @param {ClientInfo} client
+ * @param {typeof chrome} api
+ * @param {Pick<Returns, 'get'>} [returns]
+ */
+async function goBack(client, api, returns) {
+  const trail = await returns?.get(client.windowId);
+  if (trail?.to === client.tabId) await api.tabs.update(trail.from, { active: true });
+}
+
+/**
+ * @param {Exclude<ClientMessage, { type: 'hello' | 'preview' | 'seen' | 'peek' | 'return' }>} msg
+ * @param {ClientInfo} client
+ * @param {typeof chrome} api
+ */
+async function act(msg, client, api) {
+  if (msg.type === MSG.NEW) await openTabInGroup(client.tabId, api);
+  else if (msg.type === MSG.MOVE) await moveWithinGroup(msg, client.tabId, api);
+  else if (msg.type === MSG.REGROUP || msg.type === MSG.NEW_GROUP)
+    await changeGroup(msg, client.tabId, api);
+  else await actOnTab(msg, client.tabId, api);
+}
+
+/**
+ * Activates or closes a tab, but only within the sender's current window.
+ * @param {Extract<ClientMessage, { type: 'activate' | 'close' }>} msg
+ * @param {number} senderTabId
+ * @param {typeof chrome} api
+ */
+async function actOnTab(msg, senderTabId, api) {
+  const [sender, target] = await Promise.all([api.tabs.get(senderTabId), api.tabs.get(msg.tabId)]);
+  if (target.windowId !== sender.windowId) {
+    logger.warn(`ignored cross-window ${msg.type}`);
+    return;
+  }
+  if (msg.type === MSG.ACTIVATE) {
+    await api.tabs.update(msg.tabId, { active: true });
+  } else {
+    await api.tabs.remove(msg.tabId);
+  }
 }
 
 /**

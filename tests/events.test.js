@@ -63,8 +63,11 @@ describe('mouse', () => {
     expect(handlers.onMenu).toHaveBeenCalledWith(3, { x: 40, y: 600 }, tab(3));
   });
 
-  it("sends a peeked tab home from its mini window's Return button", () => {
-    ns.render(mount, { snapshot: { ...snapshot, peek: { home: null } }, collapsed: false });
+  it('goes back from the Back button', () => {
+    ns.render(mount, {
+      snapshot: { ...snapshot, back: { tabId: 9, title: 'Inbox' } },
+      collapsed: false,
+    });
     q('[data-action="return"]').click();
     expect(handlers.onReturn).toHaveBeenCalledOnce();
   });

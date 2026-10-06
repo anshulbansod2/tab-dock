@@ -22,6 +22,7 @@
   const ICONS = Object.freeze({
     plus: 'M8 3.5v9M3.5 8h9',
     close: 'M5 5l6 6M11 5l-6 6',
+    back: 'M9.5 4 5.5 8l4 4',
   });
 
   /**
@@ -84,10 +85,6 @@
     tabEl.type = 'button';
     if (tab.active) tabEl.setAttribute('aria-current', 'page');
     tabEl.setAttribute('aria-keyshortcuts', 'Delete');
-    if (tab.away) {
-      item.classList.add('hh-chip--away');
-      tabEl.setAttribute('aria-description', 'Open in a mini window');
-    }
     tabEl.tabIndex = focusable ? 0 : -1;
     tabEl.title = tab.title; // mouse tooltip for the visually truncated title
     tabEl.dataset.action = 'activate';
@@ -140,6 +137,7 @@
     const label = ns.groupLabel(snapshot.group);
     const bar = el('div', 'hh-bar');
     bar.style.setProperty('--hh-group', ns.groupColor(snapshot.group));
+    if (snapshot.back) bar.append(backButton(snapshot.back.title));
     bar.append(
       groupLabel(label),
       tabList(snapshot.tabs, label),
@@ -149,19 +147,14 @@
   }
 
   /**
-   * A peeked tab's own dock, in its mini window: one button that puts it back.
-   * @param {BarView} view
+   * On a tab opened off a hover card: back to the tab it was opened from.
+   * @param {string} title
    */
-  function buildPeekBar({ snapshot }) {
-    const home = snapshot.peek?.home ?? null;
-    const bar = el('div', 'hh-bar hh-bar--peek');
-    bar.style.setProperty('--hh-group', ns.groupColor(home));
-    const back = el('button', 'hh-return');
-    back.type = 'button';
-    back.dataset.action = 'return';
-    back.append(el('span', 'hh-dot'), el('span', '', `Return to ${ns.groupLabel(home)}`));
-    bar.append(back);
-    return bar;
+  function backButton(title) {
+    const node = button('hh-back', 'back', `Back to ${title}`, 'return');
+    node.title = `Back to ${title}`;
+    node.append(el('span', 'hh-back-text', title));
+    return node;
   }
 
   /** @param {BarView} view */
@@ -181,5 +174,5 @@
     return pill;
   }
 
-  ns.dom = Object.freeze({ buildBar, buildPill, buildPeekBar });
+  ns.dom = Object.freeze({ buildBar, buildPill });
 })();

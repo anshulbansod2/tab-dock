@@ -8,14 +8,10 @@ import { MSG, UNGROUPED_ID } from './constants.js';
  */
 export function parseClientMessage(raw) {
   if (typeof raw !== 'object' || raw === null) return null;
-  const { type, tabId, toIndex, groupId, bounds } = /** @type {Record<string, unknown>} */ (raw);
+  const { type, tabId, toIndex, groupId } = /** @type {Record<string, unknown>} */ (raw);
   if (type === MSG.NEW || type === MSG.HELLO || type === MSG.RETURN || type === MSG.SEEN)
     return { type };
-  if (type === MSG.PREVIEW && isTabId(tabId)) return { type, tabId };
-  if (type === MSG.PEEK && isTabId(tabId)) {
-    const box = parseBounds(bounds);
-    return box ? { type, tabId, bounds: box } : null;
-  }
+  if ((type === MSG.PREVIEW || type === MSG.PEEK) && isTabId(tabId)) return { type, tabId };
   if ((type === MSG.ACTIVATE || type === MSG.CLOSE) && isTabId(tabId)) return { type, tabId };
   if (type === MSG.MOVE && isTabId(tabId) && isTabId(toIndex)) return { type, tabId, toIndex };
   if (type === MSG.REGROUP && isTabId(tabId) && (isTabId(groupId) || groupId === UNGROUPED_ID))
@@ -44,23 +40,4 @@ export function identifySender(sender, extensionId) {
   const tab = sender.tab;
   if (tab?.id === undefined || tab.id < 0) return null;
   return { tabId: tab.id, windowId: tab.windowId };
-}
-
-const SCREEN_LIMIT_PX = 100_000;
-const MIN_SIZE_PX = 120;
-
-/**
- * Screen bounds for a mini window: integers, a usable size, nothing absurd.
- * @param {unknown} raw
- * @returns {PeekBounds | null}
- */
-function parseBounds(raw) {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const { left, top, width, height } = /** @type {Record<string, unknown>} */ (raw);
-  const all = [left, top, width, height];
-  const sane = all.every(
-    (v) => typeof v === 'number' && Number.isInteger(v) && Math.abs(v) <= SCREEN_LIMIT_PX,
-  );
-  if (!sane || Number(width) < MIN_SIZE_PX || Number(height) < MIN_SIZE_PX) return null;
-  return /** @type {PeekBounds} */ ({ left, top, width, height });
 }

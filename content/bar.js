@@ -199,7 +199,7 @@
       layer: cards,
       win,
       request,
-      onPeek: (tabId, bounds) => send({ type: MSG.PEEK, tabId, bounds }),
+      onPeek: (tabId) => send({ type: MSG.PEEK, tabId }),
     });
     const fresh = ns.keepPreviewFresh({ doc: layer.ownerDocument, send });
     const menu = ns.createGroupMenu({ layer, win, send });

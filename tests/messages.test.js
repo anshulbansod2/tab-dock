@@ -36,8 +36,8 @@ describe('parseClientMessage', () => {
       { type: 'preview', tabId: 3 },
     ],
     [
-      { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320, x: 1 } },
-      { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320 } },
+      { type: 'peek', tabId: 3, bounds: { left: 0 } },
+      { type: 'peek', tabId: 3 },
     ],
     [{ type: 'return' }, { type: 'return' }],
     [{ type: 'seen', extra: 1 }, { type: 'seen' }],
@@ -64,11 +64,8 @@ describe('parseClientMessage', () => {
     { type: 'regroup', tabId: 3, groupId: '10' },
     { type: 'newgroup' },
     { type: 'preview' },
-    { type: 'peek', tabId: 3 },
-    { type: 'peek', tabId: 3, bounds: { left: 0, top: 0, width: 480 } },
-    { type: 'peek', tabId: 3, bounds: { left: 0, top: 0, width: 10, height: 320 } },
-    { type: 'peek', tabId: 3, bounds: { left: 0.5, top: 0, width: 480, height: 320 } },
-    { type: 'peek', tabId: 3, bounds: { left: 1e9, top: 0, width: 480, height: 320 } },
+    { type: 'peek' },
+    { type: 'peek', tabId: -3 },
   ])('rejects %j', (raw) => {
     expect(parseClientMessage(raw)).toBeNull();
   });

@@ -10,7 +10,6 @@ const snapshot = {
   tabs: [
     { id: 1, title: 'Current', favIconUrl: null, active: true },
     { id: 2, title: 'YouTube', favIconUrl: null, active: false },
-    { id: 3, title: 'Away', favIconUrl: null, active: false, away: true },
     { id: 4, title: 'Docs', favIconUrl: null, active: false },
   ],
 };
@@ -141,9 +140,8 @@ describe('hover card', () => {
     expect(card().querySelector('img')).toBeNull();
   });
 
-  it('shows nothing for the current tab or one already out in a mini window', async () => {
+  it('shows nothing for the current tab', async () => {
     await hoverFor(300, tabEl(1));
-    await hoverFor(300, tabEl(3));
     expect(card()).toBeNull();
     expect(request).not.toHaveBeenCalled();
   });
@@ -210,13 +208,10 @@ describe('hover card', () => {
     expect(card()).toBeNull();
   });
 
-  it('turns into the live tab when clicked, in a mini window where the card was', async () => {
-    setWindow({ screenX: 100, screenY: 50, outerWidth: 1200, outerHeight: 880 });
+  it('opens the real tab when clicked', async () => {
     await hoverFor(300);
-    card().getBoundingClientRect = () => ({ left: 300, top: 140, width: 600, height: 430 });
     card().click();
-    // the window's page area lands exactly on the card; its title bar sits just above
-    expect(onPeek).toHaveBeenCalledWith(2, { left: 400, top: 242, width: 600, height: 458 });
+    expect(onPeek).toHaveBeenCalledWith(2);
     expect(card()).toBeNull();
   });
 
