@@ -2,7 +2,7 @@
 import { BROADCAST_DEBOUNCE_MS, INJECTABLE_URL, MSG, UNGROUPED_ID } from './constants.js';
 import { createFavicons } from './favicons.js';
 import { logger } from './logger.js';
-import { buildSnapshot } from './tabModel.js';
+import { buildGroupView, buildSnapshot } from './tabModel.js';
 
 /** @typedef {ReturnType<typeof createHub>} Hub */
 
@@ -96,7 +96,31 @@ export function createHub({
     lastSent.delete(tabId);
   }
 
-  return { snapshotFor, schedule, scheduleAll, forget };
+  /**
+   * Another group of the bar's window, for its group switcher.
+   * @param {ClientInfo} client
+   * @param {number} groupId
+   */
+  const groupFor = (client, groupId) => groupOf(api, favicons, client.windowId, groupId);
+
+  return { snapshotFor, groupFor, schedule, scheduleAll, forget };
+}
+
+/**
+ * A group's tabs, asked for and never pushed, so bars carry only their own group's favicons.
+ * @param {typeof chrome} api
+ * @param {Pick<ReturnType<typeof createFavicons>, 'inline'>} favicons
+ * @param {number} windowId
+ * @param {number} groupId
+ * @returns {Promise<GroupView | null>}
+ */
+async function groupOf(api, favicons, windowId, groupId) {
+  const [tabs, groups] = await Promise.all([
+    api.tabs.query({ windowId }),
+    api.tabGroups.query({ windowId }),
+  ]);
+  const view = buildGroupView({ tabs, groups, groupId });
+  return view && favicons.inline(view, tabs);
 }
 
 /**

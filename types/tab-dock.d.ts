@@ -22,8 +22,19 @@ interface Snapshot {
   tabs: BarTab[];
   /** Every group in the window, in strip order: where a tab can be moved to. */
   groups: BarGroup[];
+  /** Whether the window has ungrouped (or pinned) tabs: the switcher's last swatch. */
+  hasUngrouped: boolean;
   /** Set when this bar's tab is peeked into a mini window: the group it returns to. */
   peek?: { home: BarGroup | null };
+}
+
+/** Another group's tabs, as the group switcher shows them. */
+interface GroupView {
+  /** null: the ungrouped tabs. */
+  group: BarGroup | null;
+  tabs: BarTab[];
+  /** The group's most recently used tab. */
+  lastId: number;
 }
 
 type ClientMessage =
@@ -36,6 +47,8 @@ type ClientMessage =
   /** groupId -1 takes the tab out of its group. */
   | { type: 'regroup'; tabId: number; groupId: number }
   | { type: 'newgroup'; tabId: number }
+  /** Asks for a group's tabs (replied to with a GroupView); -1 is the ungrouped tabs. */
+  | { type: 'group'; groupId: number }
   /** Asks for the tab's hover-card screenshot (replied to, like hello). */
   | { type: 'preview'; tabId: number }
   /** Moves the tab into a mini window resting on the sender's dock (measured in its page). */

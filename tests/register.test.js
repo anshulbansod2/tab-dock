@@ -72,6 +72,16 @@ describe('previews and peeks', () => {
     expect(api.tabs.captureVisibleTab).toHaveBeenCalledWith(1, expect.anything());
   });
 
+  it("answers a group request with that group's tabs in the sender's window", async () => {
+    api.state.groups.push({ id: 20, title: 'Read', color: 'red', windowId: 1 });
+    api.state.tabs.push(makeTab({ id: 5, index: 2, groupId: 20 }));
+    api.state.tabs.push(makeTab({ id: 6, index: 0, windowId: 3, groupId: 30 }));
+    const view = await reply({ type: 'group', groupId: 20 }, createSender({ tabId: 1 }));
+    expect(view).toMatchObject({ group: { id: 20, title: 'Read' }, lastId: 5 });
+    expect(view.tabs.map((t) => t.id)).toEqual([5]);
+    expect(await reply({ type: 'group', groupId: 30 }, createSender({ tabId: 1 }))).toBeNull();
+  });
+
   it('will not hand out previews of tabs in other windows', async () => {
     api.state.tabs.push(makeTab({ id: 9, windowId: 3 }));
     expect(await reply({ type: 'preview', tabId: 9 }, createSender({ tabId: 2 }))).toBeNull();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSnapshot } from '../background/tabModel.js';
+import { buildGroupView, buildSnapshot } from '../background/tabModel.js';
 import { makeTab } from './helpers/chrome.js';
 
 const groups = [
@@ -105,5 +105,54 @@ describe('buildSnapshot', () => {
   it('skips tabs without an id', () => {
     const tabs = [makeTab({ id: 1 }), { ...makeTab({ index: 1 }), id: undefined }];
     expect(buildSnapshot({ tabs, groups, tabId: 1 }).tabs).toHaveLength(1);
+  });
+});
+
+describe('switching groups', () => {
+  it('says whether the window has ungrouped tabs to switch to', () => {
+    const grouped = [makeTab({ id: 1, groupId: 10 }), makeTab({ id: 2, index: 1, groupId: 20 })];
+    expect(buildSnapshot({ tabs: grouped, groups, tabId: 1 }).hasUngrouped).toBe(false);
+    const mixed = [...grouped, makeTab({ id: 3, index: 2, pinned: true, groupId: 10 })];
+    expect(buildSnapshot({ tabs: mixed, groups, tabId: 1 }).hasUngrouped).toBe(true);
+  });
+
+  it("lists another group's tabs in strip order, none of them the bar's own", () => {
+    const tabs = [
+      makeTab({ id: 3, index: 2, groupId: 20 }),
+      makeTab({ id: 1, index: 0, groupId: 10 }),
+      makeTab({ id: 2, index: 1, groupId: 20 }),
+    ];
+    const view = buildGroupView({ tabs, groups, groupId: 20 });
+    expect(view.group).toEqual({ id: 20, title: 'Group', color: 'red' });
+    expect(view.tabs.map((t) => [t.id, t.active])).toEqual([
+      [2, false],
+      [3, false],
+    ]);
+  });
+
+  it('names the tab last used in the group, where a click on its swatch lands', () => {
+    const tabs = [
+      makeTab({ id: 1, index: 0, groupId: 20, lastAccessed: 500 }),
+      makeTab({ id: 2, index: 1, groupId: 20, lastAccessed: 900 }),
+      makeTab({ id: 3, index: 2, groupId: 20 }),
+    ];
+    expect(buildGroupView({ tabs, groups, groupId: 20 }).lastId).toBe(2);
+  });
+
+  it('lists the ungrouped tabs, pinned ones included, for group -1', () => {
+    const tabs = [
+      makeTab({ id: 1, index: 0, pinned: true, groupId: 10 }),
+      makeTab({ id: 2, index: 1, groupId: 10 }),
+      makeTab({ id: 3, index: 2 }),
+    ];
+    const view = buildGroupView({ tabs, groups, groupId: -1 });
+    expect(view.group).toBeNull();
+    expect(view.tabs.map((t) => t.id)).toEqual([1, 3]);
+    expect(view.lastId).toBe(1);
+  });
+
+  it('has nothing for a group with no tabs in the window', () => {
+    const tabs = [makeTab({ id: 1, groupId: 10 })];
+    expect(buildGroupView({ tabs, groups, groupId: 20 })).toBeNull();
   });
 });

@@ -55,9 +55,10 @@ export function createFavicons({ api, fetchFn = fetch, max = DEFAULT_CACHE_SIZE 
   }
 
   /**
-   * @param {Snapshot} snapshot
+   * @template {{ tabs: BarTab[] }} T
+   * @param {T} snapshot - a snapshot, or a group view
    * @param {chrome.tabs.Tab[]} tabs - The window's tabs, for each bar tab's page URL.
-   * @returns {Promise<Snapshot>}
+   * @returns {Promise<T>}
    */
   async function inline(snapshot, tabs) {
     const urlById = new Map(tabs.map((tab) => [tab.id, tab.url]));

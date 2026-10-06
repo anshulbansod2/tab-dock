@@ -8,7 +8,7 @@ import { effectiveGroupId } from './tabModel.js';
  * Performs a validated bar action for the tab that sent it. Never rejects: stale-tab failures
  * are expected and ignored, anything else is logged.
  *
- * @param {Exclude<ClientMessage, { type: 'hello' | 'preview' | 'seen' }>} msg
+ * @param {Exclude<ClientMessage, { type: 'hello' | 'preview' | 'seen' | 'group' }>} msg
  * @param {ClientInfo} client
  * @param {typeof chrome} api
  * @param {Peeks} [peeks]

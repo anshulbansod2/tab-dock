@@ -44,6 +44,14 @@ describe('parseClientMessage', () => {
       { type: 'peek', tabId: 3, dock: DOCK, view: VIEW, point: POINT },
     ],
     [{ type: 'return' }, { type: 'return' }],
+    [
+      { type: 'group', groupId: 20, tabId: 4 },
+      { type: 'group', groupId: 20 },
+    ],
+    [
+      { type: 'group', groupId: -1 },
+      { type: 'group', groupId: -1 },
+    ],
     [{ type: 'seen', extra: 1 }, { type: 'seen' }],
   ])('accepts %j', (raw, expected) => {
     expect(parseClientMessage(raw)).toEqual(expected);
@@ -68,6 +76,9 @@ describe('parseClientMessage', () => {
     { type: 'regroup', tabId: 3, groupId: '10' },
     { type: 'newgroup' },
     { type: 'preview' },
+    { type: 'group' },
+    { type: 'group', groupId: -2 },
+    { type: 'group', groupId: '20' },
     { type: 'peek', tabId: 3 },
     { type: 'peek', tabId: 3, dock: DOCK, view: VIEW },
     { type: 'peek', tabId: 3, dock: { ...DOCK, right: 100 }, view: VIEW, point: POINT },

@@ -14,6 +14,7 @@ interface ContentConstants {
     PEEK: 'peek';
     RETURN: 'return';
     SEEN: 'seen';
+    GROUP: 'group';
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
