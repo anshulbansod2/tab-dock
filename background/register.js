@@ -104,8 +104,15 @@ async function previewFor(tabId, client, { api, peeks, previews }) {
  */
 async function returnPeeksTo(windowId, peeks) {
   if (windowId < 0) return;
-  for (const [tabId, origin] of await peeks.all())
-    if (origin.windowId === windowId) await peeks.back(tabId);
+  for (const [tabId, origin] of await peeks.all()) {
+    if (origin.windowId === windowId) {
+      try {
+        await peeks.back(tabId);
+      } catch (err) {
+        logger.warn(`Failed to return peeked tab ${tabId}`, err);
+      }
+    }
+  }
 }
 
 /**
