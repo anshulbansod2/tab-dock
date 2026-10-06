@@ -18,10 +18,11 @@
     let opening; // hover delay before a chip's card shows
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     let closing; // grace before the card goes once the pointer leaves
-    /** @type {Element | null} */
-    let target = null; // the chip under the pointer, so moves within it don't restart the wait
+    /** @type {number | null} */
+    let target = null; // the tab under the pointer, so moves within it don't restart the wait
     const card = createCard({
       ...deps,
+      mount,
       onEnter: () => clearTimeout(closing),
       onLeave: (event) => leaving(event, LEAVE_MS),
     });
@@ -36,17 +37,19 @@
     /** @param {Event} event */
     function onOver(event) {
       const chip = event.target instanceof Element ? event.target.closest('.hh-chip') : null;
+      const tabId = chip ? tabIdOf(chip) : null;
       clearTimeout(closing); // still on the dock
-      if (chip === target) return; // moving within the chip: keep its wait running
+      // Moving within the chip keeps its wait running, even across a re-render (by tab id).
+      if (tabId !== null && tabId === target) return;
       clearTimeout(opening);
-      if (!(chip instanceof HTMLElement) || !previewable(chip)) {
-        if (card.el())
-          closing = setTimeout(hide, REACH_MS); // maybe heading for the card
+      if (!(chip instanceof HTMLElement) || tabId === null || !previewable(chip)) {
+        // With a card showing, the pointer may be on its way to it.
+        if (card.el()) closing = setTimeout(hide, REACH_MS);
         else hide();
         return;
       }
-      target = chip;
-      opening = setTimeout(() => void card.open(chip, hide), HOVER_MS);
+      target = tabId;
+      opening = setTimeout(() => void card.open(tabId, hide), HOVER_MS);
     }
 
     /** @param {MouseEvent} event @param {number} [delay] */
@@ -58,17 +61,16 @@
       closing = setTimeout(hide, delay);
     }
 
-    const listeners = /** @type {const} */ ([
+    const unlisten = listen(mount, [
       ['pointerover', onOver],
       ['pointerout', /** @type {EventListener} */ (leaving)],
       ['pointerdown', hide], // switching, dragging or a menu: no card
     ]);
-    for (const [type, listener] of listeners) mount.addEventListener(type, listener);
     return {
       hide,
       dispose() {
         hide();
-        for (const [type, listener] of listeners) mount.removeEventListener(type, listener);
+        unlisten();
       },
     };
   };
@@ -76,11 +78,17 @@
   /**
    * The card itself: asks the background for the tab's last screenshot, shows it by the chip,
    * and opens the tab live when clicked. Replies to a closed or superseded card are dropped.
-   * @param {{ layer: HTMLElement, win: Window, request: Connection['request'],
+   * Chip and dock are looked up when used: a re-render (any title or icon change in the group)
+   * replaces them, and a replaced node measures as an empty box at the page's top-left.
+   * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window, request: Connection['request'],
    *   onPeek: (tabId: number, bounds: PeekBounds) => void, now?: () => number,
    *   onEnter: () => void, onLeave: (event: MouseEvent) => void }} deps
    */
-  function createCard({ layer, win, request, onPeek, now = Date.now, onEnter, onLeave }) {
+  function createCard({ mount, layer, win, request, onPeek, now = Date.now, onEnter, onLeave }) {
+    /** @param {number} tabId */
+    const chipOf = (tabId) =>
+      mount.querySelector(`.hh-tab[data-tab-id="${tabId}"]`)?.closest('.hh-chip');
+    const dockOf = () => mount.querySelector('.hh-bar');
     /** @type {HTMLElement | null} */
     let shown = null;
     let pending = 0; // id of the card the next reply belongs to
@@ -92,23 +100,24 @@
     return {
       close,
       el: () => shown,
-      /** @param {HTMLElement} chip @param {() => void} hide */
-      async open(chip, hide) {
-        const tab = /** @type {HTMLElement} */ (chip.querySelector('.hh-tab'));
-        const tabId = Number(tab.dataset.tabId);
+      /** @param {number} tabId @param {() => void} hide */
+      async open(tabId, hide) {
         const ticket = ++pending;
         const reply = await request({ type: MSG.PREVIEW, tabId });
         if (ticket !== pending) return; // the pointer moved on meanwhile
+        const chip = chipOf(tabId);
+        const dock = dockOf();
+        const tab = chip?.querySelector('.hh-tab');
+        if (!chip || !dock || !(tab instanceof HTMLElement)) return; // the tab left this dock
         const el = buildCard(tab.title, reply, now());
         el.addEventListener('pointerover', onEnter);
         el.addEventListener('pointerout', onLeave);
         el.addEventListener('click', () => {
-          const bounds = peekBounds(dock.getBoundingClientRect(), win);
+          const bounds = peekBounds((dockOf() ?? dock).getBoundingClientRect(), win);
           hide();
           onPeek(tabId, bounds);
         });
         layer.replaceChildren(el);
-        const dock = chip.closest('.hh-bar') ?? chip;
         place(el, chip.getBoundingClientRect(), dock.getBoundingClientRect(), win);
         shown = el;
       },
@@ -130,6 +139,24 @@
     timer = setTimeout(tick, everyMs);
     return { dispose: () => clearTimeout(timer) };
   };
+
+  /**
+   * @param {HTMLElement} target
+   * @param {[string, EventListener][]} listeners
+   * @returns {() => void} removes them again
+   */
+  function listen(target, listeners) {
+    for (const [type, listener] of listeners) target.addEventListener(type, listener);
+    return () => {
+      for (const [type, listener] of listeners) target.removeEventListener(type, listener);
+    };
+  }
+
+  /** @param {Element} chip @returns {number | null} */
+  function tabIdOf(chip) {
+    const id = Number(chip.querySelector('.hh-tab')?.getAttribute('data-tab-id'));
+    return Number.isInteger(id) ? id : null;
+  }
 
   /** Neither the current tab nor one already out in a mini window. @param {HTMLElement} chip */
   const previewable = (chip) =>

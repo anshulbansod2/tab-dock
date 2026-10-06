@@ -124,6 +124,38 @@ describe('hover card', () => {
     expect(card().style.left).toBe(`${1200 - 480 - 8}px`);
   });
 
+  describe('when the dock re-renders (a tab title or icon changed)', () => {
+    const rerender = () => ns.render(mount, { snapshot, collapsed: false });
+
+    it('places the card by the live chip, not the one the render replaced', async () => {
+      await hoverFor(100);
+      rerender();
+      chipAt(2, { left: 700, top: 100 });
+      dockAt({ top: 92, bottom: 140 });
+      await hoverFor(200, tabEl(2));
+      expect(card().style.left).toBe(`${760 - 240}px`);
+    });
+
+    it('keeps the hover wait running on the re-rendered chip', async () => {
+      await hoverFor(100);
+      rerender();
+      chipAt(2, { left: 500, top: 100 });
+      dockAt({ top: 92, bottom: 140 });
+      await hoverFor(160, tabEl(2).querySelector('.hh-title'));
+      expect(card()).not.toBeNull(); // 100 + 160 ms: the wait was not restarted
+    });
+
+    it('still opens the live tab from a card shown before the render', async () => {
+      setWindow({ outerWidth: 1200, outerHeight: 880 }); // no zoom
+      await hoverFor(300);
+      rerender();
+      chipAt(2, { left: 500, top: 100 });
+      dockAt({ top: 92, bottom: 140 });
+      card().click();
+      expect(onPeek).toHaveBeenCalledWith(2, expect.objectContaining({ width: 600 }));
+    });
+  });
+
   it('says so when there is no screenshot yet', async () => {
     request.mockResolvedValueOnce(null);
     await hoverFor(300);
