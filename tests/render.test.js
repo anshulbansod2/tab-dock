@@ -268,13 +268,6 @@ describe('styles', () => {
 });
 
 describe('render (peeking)', () => {
-  it('marks a tab that is out in a mini window', () => {
-    renderTabs([tab(1, { active: true }), tab(2, { away: true })]);
-    const away = mount.querySelector('.hh-tab[data-tab-id="2"]');
-    expect(away.closest('.hh-chip').classList).toContain('hh-chip--away');
-    expect(away.getAttribute('aria-description')).toBe('Open in a mini window');
-  });
-
   it("turns a peeked tab's own dock into a Return button", () => {
     ns.render(mount, {
       snapshot: { ...grouped, peek: { home: grouped.group } },

@@ -84,10 +84,6 @@
     tabEl.type = 'button';
     if (tab.active) tabEl.setAttribute('aria-current', 'page');
     tabEl.setAttribute('aria-keyshortcuts', 'Delete');
-    if (tab.away) {
-      item.classList.add('hh-chip--away');
-      tabEl.setAttribute('aria-description', 'Open in a mini window');
-    }
     tabEl.tabIndex = focusable ? 0 : -1;
     tabEl.title = tab.title; // mouse tooltip for the visually truncated title
     tabEl.dataset.action = 'activate';

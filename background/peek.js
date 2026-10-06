@@ -2,7 +2,105 @@
 import { UNGROUPED_ID } from './constants.js';
 import { effectiveGroupId } from './tabModel.js';
 
-const KEY_PREFIX = 'peek:';
+const PEEKS_KEY = 'peeks';
+
+/**
+ * @param {chrome.storage.StorageArea} store
+ * @returns {Promise<Record<string, PeekOrigin>>}
+ */
+async function getPeeks(store) {
+  return /** @type {Record<string, PeekOrigin>} */ ((await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {});
+}
+
+/**
+ * @param {chrome.storage.StorageArea} store
+ * @param {Record<string, PeekOrigin>} peeks
+ */
+async function savePeeks(store, peeks) {
+  if (Object.keys(peeks).length) await store.set({ [PEEKS_KEY]: peeks });
+  else await store.remove(PEEKS_KEY);
+}
+
+/**
+ * @param {typeof chrome} api
+ * @param {chrome.storage.StorageArea} store
+ * @param {number} tabId
+ * @param {PeekOrigin} origin
+ */
+async function doBack(api, store, tabId, origin) {
+  const p = await getPeeks(store);
+  delete p[tabId]; // first, so the focus change this causes finds nothing left to return
+  await savePeeks(store, p);
+  await placeHome(api, tabId, origin);
+}
+
+/**
+ * Puts a tab where a peek took it from: its window and index, group and pin (or, if that
+ * window is gone, the end of the last-used one), and brings that window forward.
+ * @param {typeof chrome} api
+ * @param {number} tabId
+ * @param {PeekOrigin} origin
+ */
+async function placeHome(api, tabId, origin) {
+  const { windowId, same } = await homeWindow(api, origin);
+  await api.tabs.move(tabId, { windowId, index: same ? origin.index : -1 });
+  if (same && origin.groupId !== UNGROUPED_ID && (await groupExists(api, origin.groupId)))
+    await api.tabs.group({ groupId: origin.groupId, tabIds: tabId });
+  if (origin.pinned) await api.tabs.update(tabId, { pinned: true });
+  if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
+}
+
+/**
+ * A peek's window was closed (its close button, Cmd/Ctrl+W), which closes the tab with it.
+ * Brings the tab back to its old place: restored from the session when the closed item is that
+ * tab (history and page state come back), else reopened at its address.
+ * @param {typeof chrome} api
+ * @param {PeekOrigin} origin
+ */
+export async function reopenClosed(api, origin) {
+  let tabId = await restoreFromSession(api, origin.url).catch(() => null);
+  if (tabId === null) {
+    const { windowId, same } = await homeWindow(api, origin);
+    const index = same ? origin.index : -1;
+    tabId = (await api.tabs.create({ windowId, index, url: origin.url, active: false })).id ?? null;
+  }
+  if (tabId !== null) await placeHome(api, tabId, origin);
+}
+
+/**
+ * Restores the most recently closed item if it is the tab at `url` (alone in its closed mini
+ * window, or as a tab), and returns the restored tab's id.
+ * @param {typeof chrome} api
+ * @param {string | undefined} url
+ * @returns {Promise<number | null>}
+ */
+async function restoreFromSession(api, url) {
+  const [recent] = await api.sessions.getRecentlyClosed({ maxResults: 1 });
+  const closed = recent?.window?.tabs?.[0] ?? recent?.tab;
+  const sessionId = recent?.window?.sessionId ?? recent?.tab?.sessionId;
+  if (!sessionId || !url || closed?.url !== url) return null;
+  const restored = await api.sessions.restore(sessionId);
+  return (restored?.window?.tabs?.[0] ?? restored?.tab)?.id ?? null;
+}
+
+/**
+ * @param {typeof chrome} api
+ * @param {chrome.storage.StorageArea} store
+ * @param {Set<number>} inFlight
+ * @returns {(tabId: number) => Promise<void>}
+ */
+function makeBack(api, store, inFlight) {
+  return async (tabId) => {
+    if (inFlight.has(tabId)) return;
+    inFlight.add(tabId);
+    try {
+      const origin = (await getPeeks(store))[tabId];
+      if (origin) await doBack(api, store, tabId, origin);
+    } finally {
+      inFlight.delete(tabId);
+    }
+  };
+}
 
 /**
  * Live peeks: a tab moved, as itself (page state, video, login intact), into a small popup
@@ -12,68 +110,41 @@ const KEY_PREFIX = 'peek:';
  * @param {{ api: typeof chrome, store?: chrome.storage.StorageArea }} deps
  */
 export function createPeeks({ api, store = api.storage.session }) {
-  /**
-   * @param {number} tabId
-   * @returns {Promise<PeekOrigin | null>}
-   */
-  async function originOf(tabId) {
-    const saved = (await store.get(KEY_PREFIX + tabId))[KEY_PREFIX + tabId];
-    return /** @type {PeekOrigin | undefined} */ (saved) ?? null;
-  }
-
+  const inFlight = new Set();
   return {
-    originOf,
-
-    /**
-     * @param {number} tabId
-     * @param {PeekBounds} bounds - screen pixels
-     */
+    /** @param {number} tabId @returns {Promise<PeekOrigin | null>} */
+    originOf: (tabId) => getPeeks(store).then((p) => p[tabId] ?? null),
+    /** @param {number} tabId @param {PeekBounds} bounds */
     async open(tabId, bounds) {
       const tab = await api.tabs.get(tabId);
-      /** @type {PeekOrigin} */
-      const origin = { windowId: tab.windowId, index: tab.index, groupId: effectiveGroupId(tab) };
-      await store.set({ [KEY_PREFIX + tabId]: origin });
+      const p = await getPeeks(store);
+      p[tabId] = {
+        windowId: tab.windowId,
+        index: tab.index,
+        groupId: effectiveGroupId(tab),
+        pinned: tab.pinned,
+        url: tab.url,
+      };
+      await savePeeks(store, p);
       try {
         await api.windows.create({ tabId, type: 'popup', ...bounds, focused: true });
       } catch (err) {
-        await store.remove(KEY_PREFIX + tabId);
+        const ps = await getPeeks(store);
+        delete ps[tabId];
+        await savePeeks(store, ps);
         throw err;
       }
     },
-
-    /** @param {number} tabId */
-    async back(tabId) {
-      const origin = await originOf(tabId);
-      if (!origin) return;
-      const { windowId, same } = await homeWindow(api, origin);
-      await api.tabs.move(tabId, { windowId, index: same ? origin.index : -1 });
-      await store.remove(KEY_PREFIX + tabId);
-      if (same && origin.groupId !== UNGROUPED_ID && (await groupExists(api, origin.groupId)))
-        await api.tabs.group({ groupId: origin.groupId, tabIds: tabId });
-      if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
-    },
-
-    /** @param {number} tabId - brings a peeked tab's window forward */
-    async focus(tabId) {
-      const tab = await api.tabs.get(tabId);
-      await api.windows.update(tab.windowId, { focused: true });
-    },
-
+    back: makeBack(api, store, inFlight),
     /** @returns {Promise<Map<number, PeekOrigin>>} */
-    async all() {
-      const items = await store.get(null);
-      return new Map(
-        Object.entries(items)
-          .filter(([key]) => key.startsWith(KEY_PREFIX))
-          .map(([key, origin]) => [
-            Number(key.slice(KEY_PREFIX.length)),
-            /** @type {PeekOrigin} */ (origin),
-          ]),
-      );
-    },
-
+    all: () =>
+      getPeeks(store).then((p) => new Map(Object.entries(p).map(([id, o]) => [Number(id), o]))),
     /** @param {number} tabId */
-    forget: (tabId) => store.remove(KEY_PREFIX + tabId),
+    forget: async (tabId) => {
+      const p = await getPeeks(store);
+      delete p[tabId];
+      await savePeeks(store, p);
+    },
   };
 }
 

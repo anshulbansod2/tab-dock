@@ -30,7 +30,8 @@ Tabs that were already open get the bar the first time you switch to them — no
   you are on refreshes its picture every 30 s). Click the card to open the tab live in a window
   exactly as wide as the dock, resting on it, without leaving the page you're on; **Return to <group>** in that
   window puts it back where it was. Chrome can't keep that window on top, so clicking back
-  into the main window also puts the tab back, the way a popover closes.
+  into the main window also puts the tab back, the way a popover closes. Closing the mini window
+  brings the tab back to its old place too, history and all.
 - Keyboard: focus a chip, then ←/→/Home/End to move, Enter/Space to switch, Delete to close,
   Alt+Shift+←/→ to reorder, Shift+F10 (or the menu key) for the tab menu. With the group
   name focused, Alt+arrows move the dock and Alt+Home puts it back.
@@ -57,8 +58,11 @@ listens in the capture phase on `window` can still see them; that is a browser l
 ### Permissions
 
 `tabs`, `tabGroups`, `storage`; `scripting` + host access to add the bar to tabs that were
-open before install; `favicon` to read Chrome's favicon cache. Host access matches the content
-script's sites, so it adds no install warning.
+open before install; `favicon` to read Chrome's favicon cache; `sessions` to bring back, with its
+history, a tab whose mini window was closed. Host access matches the content script's sites, so
+it adds no install warning. `sessions` with `tabs` does: Chrome words it "Read your browsing
+history on all your signed-in devices" (a store install would show it; an unpacked one doesn't).
+The extension only ever restores the one tab it just saw closed.
 
 ## Develop
 

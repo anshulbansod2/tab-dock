@@ -77,17 +77,14 @@ describe('previews and peeks', () => {
     expect(await reply({ type: 'preview', tabId: 9 }, createSender({ tabId: 2 }))).toBeNull();
   });
 
-  it("peeks a tab, shows it away in its home window's bar, and returns it", async () => {
+  it('peeks a tab and returns it', async () => {
     deliver({ type: 'peek', tabId: 2, ...MEASURES }, createSender({ tabId: 1 }));
     await flushPromises();
     await flushPromises();
     expect(api.windows.create).toHaveBeenCalledWith(expect.objectContaining({ tabId: 2 }));
     api.state.tabs[1].windowId = 77; // Chrome moved it into the mini window
     const home = await reply({ type: 'hello' }, createSender({ tabId: 1 }));
-    expect(home.tabs.map((t) => [t.id, Boolean(t.away)])).toEqual([
-      [1, false],
-      [2, true],
-    ]);
+    expect(home.tabs.map((t) => t.id)).toEqual([1]);
     const mini = await reply({ type: 'hello' }, createSender({ tabId: 2, windowId: 77 }));
     expect(mini.peek).toEqual({ home: { id: 10, title: 'Work', color: 'blue' } });
     deliver({ type: 'return' }, createSender({ tabId: 2, windowId: 77 }));
@@ -130,6 +127,23 @@ describe('previews and peeks', () => {
     await settle();
     expect(api.storage.session.data).toEqual({});
     expect(api.tabs.sendMessage).toHaveBeenCalledWith(1, expect.anything(), { frameId: 0 });
+  });
+
+  it('reopens a peeked tab in its old place when its mini window is closed', async () => {
+    deliver({ type: 'peek', tabId: 2, ...MEASURES }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    api.state.tabs.splice(1, 1);
+    api.tabs.onRemoved.emit(2, { windowId: 77, isWindowClosing: true });
+    await flushPromises();
+    await flushPromises();
+    await flushPromises();
+    expect(api.tabs.create).toHaveBeenCalledWith({
+      windowId: 1,
+      index: 1,
+      url: 'https://example.com/2',
+      active: false,
+    });
   });
 });
 

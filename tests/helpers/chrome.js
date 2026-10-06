@@ -55,9 +55,13 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       getManifest: () => ({ content_scripts: [{ js: ['content/core.js', 'content/main.js'] }] }),
     },
     storage: { local: createStorage(), session: createStorage() },
+    sessions: {
+      getRecentlyClosed: vi.fn(async () => []),
+      restore: vi.fn(async () => undefined),
+    },
     windows: {
-      create: vi.fn(async (props) => ({ id: 77, ...props })),
-      get: vi.fn(async (id) => ({ id, type: 'normal' })),
+      create: vi.fn(async (props) => ({ id: 77, type: 'popup', ...props })),
+      get: vi.fn(async (id) => ({ id, type: id === 77 ? 'popup' : 'normal' })),
       update: vi.fn(async (id, props) => ({ id, ...props })),
       getLastFocused: vi.fn(async () => ({ id: 1, type: 'normal' })),
       onFocusChanged: createEvent(),

@@ -16,6 +16,7 @@ describe('manifest.json', () => {
     expect([...manifest.permissions].sort()).toEqual([
       'favicon',
       'scripting',
+      'sessions',
       'storage',
       'tabGroups',
       'tabs',
