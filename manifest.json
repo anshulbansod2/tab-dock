@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Dock",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A horizontal quick-switch bar for the tabs in your current Chrome tab group.",
   "minimum_chrome_version": "123",
   "permissions": ["tabs", "tabGroups", "storage", "sessions", "scripting", "favicon"],
@@ -9,6 +9,23 @@
   "background": {
     "service_worker": "background/service-worker.js",
     "type": "module"
+  },
+  "action": {
+    "default_title": "Tab Dock",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Open Tab Dock"
+    }
   },
   "content_scripts": [
     {

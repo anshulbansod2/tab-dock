@@ -167,9 +167,13 @@
   box-shadow: inset 0 1px 0 var(--hh-highlight), 0 8px 24px -10px rgb(0 0 0 / 0.35);
   font-weight: 600; font-variant-numeric: tabular-nums;
 }
-.hh-tab:focus-visible, .hh-btn:focus-visible, .hh-pill:focus-visible, .hh-label:focus-visible {
+.hh-btn:focus-visible, .hh-pill:focus-visible, .hh-label:focus-visible {
   outline: 2px solid var(--hh-focus); outline-offset: 1px;
 }
+/* A focused tab rings its whole chip: on the tab button alone the ring stopped short of the
+   close button on the right. Inset, as the scrolling strip clips anything outside a chip.
+   (.hh-tab's all: unset already drops the browser's own ring.) */
+.hh-chip:has(> .hh-tab:focus-visible) { outline: 2px solid var(--hh-focus); outline-offset: -2px; }
 /* Menus and drop targets live in a layer over the whole window; only their own boxes take
    pointer events. */
 .hh-layer { position: fixed; inset: 0; pointer-events: none; }

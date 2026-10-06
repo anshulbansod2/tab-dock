@@ -32,12 +32,17 @@ Tabs that were already open get the bar the first time you switch to them — no
   window puts it back where it was. Chrome can't keep that window on top, so clicking back
   into the main window also puts the tab back, the way a popover closes. Closing the mini window
   brings the tab back to its old place too, history and all.
+- Switch groups from the dock: each group has a dot in its Chrome colour at the left end (a
+  dashed one for ungrouped tabs). Move the pointer onto a dot to see that group's tabs, then
+  click one, or click the dot for the tab you last used there. Leave the dock, press Esc or
+  click Back to see your own group again. The group you leave folds up in Chrome's tab strip.
 - Keyboard: focus a chip, then ←/→/Home/End to move, Enter/Space to switch, Delete to close,
   Alt+Shift+←/→ to reorder, Shift+F10 (or the menu key) for the tab menu. With the group
   name focused, Alt+arrows move the dock and Alt+Home puts it back.
 
 The bar cannot appear on `chrome://` pages, the New Tab page or the Chrome Web Store — Chrome
-does not allow extensions there.
+does not allow extensions there. On those pages (or any page), press **Alt+Shift+D** or click
+the toolbar icon for the same dock in a popup; change the key at `chrome://extensions/shortcuts`.
 
 Keystrokes made while the bar has focus are kept from the page's own shortcuts. A page that
 listens in the capture phase on `window` can still see them; that is a browser limitation.

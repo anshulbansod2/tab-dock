@@ -21,7 +21,7 @@ export default [
   {
     // The team's size limits (functions under 50 lines, files under 400). Content scripts are
     // IIFE-wrapped, so the wrapper itself is exempt.
-    files: ['background/**/*.js', 'content/**/*.js', 'scripts/**/*.js'],
+    files: ['background/**/*.js', 'content/**/*.js', 'popup/**/*.js', 'scripts/**/*.js'],
     rules: {
       'max-lines': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
       'max-lines-per-function': [
@@ -35,6 +35,13 @@ export default [
     languageOptions: {
       sourceType: 'module',
       globals: { ...globals.serviceworker, ...globals.webextensions },
+    },
+  },
+  {
+    files: ['popup/**/*.js'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: { ...globals.browser, ...globals.webextensions },
     },
   },
   {
