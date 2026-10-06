@@ -92,6 +92,30 @@ describe('previews and peeks', () => {
     expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
   });
 
+  const peekTwo = async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    api.state.tabs[1].windowId = 77; // Chrome moved it into the mini window
+  };
+
+  it('puts a peeked tab back as soon as its home window is used again', async () => {
+    await peekTwo();
+    api.windows.onFocusChanged.emit(1);
+    await flushPromises();
+    await flushPromises();
+    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
+  });
+
+  it('leaves it out while focus is in the mini window or another app', async () => {
+    await peekTwo();
+    api.windows.onFocusChanged.emit(77);
+    api.windows.onFocusChanged.emit(-1);
+    await flushPromises();
+    await flushPromises();
+    expect(api.tabs.move).not.toHaveBeenCalled();
+  });
+
   it('closing a mini window forgets its peek and refreshes the home window', async () => {
     deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
     await flushPromises();

@@ -35,6 +35,9 @@ export function registerBackground(api, { shrink } = {}) {
     void hub.scheduleAll();
   });
   registerTabEvents(services);
+  // A mini window can't stay on top, so using its home window again would bury it: the tab
+  // goes back to its dock instead, the way a popover closes on an outside click.
+  api.windows.onFocusChanged.addListener((windowId) => void returnPeeksTo(windowId, peeks));
   registerGroupEvents(api, hub);
   return hub;
 }
@@ -93,6 +96,16 @@ async function previewFor(tabId, client, { api, peeks, previews }) {
   const mine =
     tab.windowId === client.windowId || (await peeks.originOf(tabId))?.windowId === client.windowId;
   return mine ? previews.get(tabId) : null;
+}
+
+/**
+ * @param {number} windowId - the window that just took focus (none: another app has it)
+ * @param {Peeks} peeks
+ */
+async function returnPeeksTo(windowId, peeks) {
+  if (windowId < 0) return;
+  for (const [tabId, origin] of await peeks.all())
+    if (origin.windowId === windowId) await peeks.back(tabId);
 }
 
 /**

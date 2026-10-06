@@ -29,7 +29,8 @@ Tabs that were already open get the bar the first time you switch to them — no
 - Hover a chip and a card grows out of the dock showing that tab as you last saw it (the tab
   you are on refreshes its picture every 30 s). Click the card to open the tab live in a small
   window over that same spot, without leaving the page you're on; **Return to <group>** in that
-  window puts it back where it was. The window is an ordinary one, so it does not stay on top.
+  window puts it back where it was. Chrome can't keep that window on top, so clicking back
+  into the main window also puts the tab back, the way a popover closes.
 - Keyboard: focus a chip, then ←/→/Home/End to move, Enter/Space to switch, Delete to close,
   Alt+Shift+←/→ to reorder, Shift+F10 (or the menu key) for the tab menu. With the group
   name focused, Alt+arrows move the dock and Alt+Home puts it back.

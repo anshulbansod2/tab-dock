@@ -60,6 +60,8 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       get: vi.fn(async (id) => ({ id, type: 'normal' })),
       update: vi.fn(async (id, props) => ({ id, ...props })),
       getLastFocused: vi.fn(async () => ({ id: 1, type: 'normal' })),
+      onFocusChanged: createEvent(),
+      WINDOW_ID_NONE: -1,
     },
     scripting: { executeScript: vi.fn(async () => []) },
     tabs: {
