@@ -175,6 +175,21 @@
     return card;
   }
 
+  /** Chrome's page zoom levels, as factors. */
+  const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
+
+  /**
+   * The page's zoom: the window is as wide as its page area in screen pixels, which a zoomed
+   * page reports in its own pixels. Snapped to Chrome's levels, so a thin window border
+   * (Windows, Linux) reads as no zoom rather than a sliver of one.
+   * @param {Window} win
+   */
+  function zoomOf(win) {
+    const ratio = win.outerWidth / win.innerWidth;
+    if (!Number.isFinite(ratio) || ratio <= 0) return 1;
+    return ZOOMS.reduce((best, z) => (Math.abs(z - ratio) < Math.abs(best - ratio) ? z : best));
+  }
+
   /** @param {number} ms */
   function ago(ms) {
     const minutes = Math.floor(ms / 60_000);
@@ -204,24 +219,30 @@
 
   /**
    * Screen bounds for the live window: its page exactly as wide as the dock, in the window's
-   * own shape (no taller than the room left), resting on the dock's edge facing the page with
-   * its title bar on the far side; kept on screen.
-   * @param {Pick<DOMRect, 'left' | 'width' | 'top' | 'bottom'>} dock
+   * own shape (no taller than the room left), its outer edge resting on the dock's edge facing
+   * the page; kept on screen.
+   * @param {Pick<DOMRect, 'left' | 'width' | 'top' | 'bottom'>} rect - the dock, in page pixels
    * @param {Window} win
    * @returns {PeekBounds}
    */
-  function peekBounds(dock, win) {
-    const above = dock.top > win.innerHeight - dock.bottom;
-    const room = (above ? dock.top : win.innerHeight - dock.bottom) - CARD.edge;
-    const shape = Math.round((dock.width * win.innerHeight) / win.innerWidth);
-    const page = Math.max(PEEK.minHeight, Math.min(room, shape));
-    const pageTop = above ? dock.top - page : dock.bottom;
-    const chromeLeft = Math.max(0, (win.outerWidth - win.innerWidth) / 2);
-    const chromeTop = Math.max(0, win.outerHeight - win.innerHeight);
+  function peekBounds(rect, win) {
+    // Page sizes are in CSS pixels, which a zoomed page scales; window positions are not.
+    const zoom = zoomOf(win);
+    const dock = { left: rect.left * zoom, width: rect.width * zoom, top: rect.top * zoom };
+    const view = { width: win.innerWidth * zoom, height: win.innerHeight * zoom };
+    const bottom = rect.bottom * zoom;
+    const above = dock.top > view.height - bottom;
+    const room = Math.round((above ? dock.top : view.height - bottom) - CARD.edge);
+    const shape = Math.round((dock.width * view.height) / view.width);
+    const page = Math.max(PEEK.minHeight, Math.min(room - PEEK.titleBar, shape));
+    // The whole window, title bar included, sits beside the dock: never over it.
+    const windowTop = above ? dock.top - page - PEEK.titleBar : bottom;
+    const chromeLeft = Math.max(0, (win.outerWidth - view.width) / 2);
+    const chromeTop = Math.max(0, win.outerHeight - view.height);
     const width = Math.round(dock.width);
     const height = page + PEEK.titleBar;
     let left = Math.round(win.screenX + chromeLeft + dock.left);
-    let top = Math.round(win.screenY + chromeTop + pageTop - PEEK.titleBar);
+    let top = Math.round(win.screenY + chromeTop + windowTop);
     const {
       availLeft = 0,
       availTop = 0,

@@ -218,6 +218,31 @@ describe('hover card', () => {
     expect(card()).toBeNull();
   });
 
+  it('lands on the dock on a zoomed page too (page sizes are in zoomed pixels)', async () => {
+    // 125 % zoom: a 1200 × 800 px page area reports itself as 960 × 640
+    setWindow({
+      screenX: 100,
+      screenY: 50,
+      outerWidth: 1200,
+      outerHeight: 880,
+      innerWidth: 960,
+      innerHeight: 640,
+    });
+    chipAt(2, { left: 400, top: 608 });
+    mount.querySelector('.hh-bar').getBoundingClientRect = () => ({
+      left: 240,
+      right: 720,
+      width: 480,
+      top: 600,
+      bottom: 640,
+      height: 40,
+    });
+    await hoverFor(300);
+    card().click();
+    // on screen the dock is 600 px wide from x = 400, its top edge at y = 50 + 80 + 750
+    expect(onPeek).toHaveBeenCalledWith(2, { left: 400, top: 452, width: 600, height: 428 });
+  });
+
   it('hangs the live window below a dock at the top, no taller than the room left', async () => {
     setWindow({ screenX: 100, screenY: 50, outerWidth: 1200, outerHeight: 880, innerHeight: 500 });
     await hoverFor(300);
@@ -225,7 +250,7 @@ describe('hover card', () => {
     // the window's shape gives 600 × 250, which fits the 352 px left below the dock
     expect(onPeek).toHaveBeenCalledWith(2, expect.objectContaining({ left: 400, width: 600 }));
     const { top, height } = onPeek.mock.calls[0][1];
-    expect(top).toBe(50 + 380 + 140 - 28); // chrome is 880 - 500 tall
+    expect(top).toBe(50 + 380 + 140); // the whole window, title bar too, starts at the dock's bottom
     expect(height).toBe(Math.min(352, Math.round((600 * 500) / 1200)) + 28);
   });
 
