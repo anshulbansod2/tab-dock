@@ -62,7 +62,8 @@ function onClientMessage(raw, sender, sendResponse, services) {
     reply(answer, sendResponse, msg.type);
     return true; // keeps the channel open for the async sendResponse
   }
-  void handleAction(msg, client, api, peeks);
+  if (msg.type === MSG.SEEN) services.previews.schedule(client.windowId);
+  else void handleAction(msg, client, api, peeks);
   return false;
 }
 

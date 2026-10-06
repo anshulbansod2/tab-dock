@@ -8,6 +8,7 @@
   const { MSG } = ns.constants;
   const HOVER_MS = 250;
   const LEAVE_MS = 150; // off the card: the user is done with it
+  const FRESH_MS = 30_000;
   const REACH_MS = 400; // from the chip to the card, across the dock edge and the gap
   const CARD = { width: 360, height: 270, gap: 8, edge: 8 };
   const PEEK = { width: 480, height: 320, titleBar: 28 };
@@ -112,6 +113,22 @@
       },
     };
   }
+
+  /**
+   * Screenshots can only be taken of the tab on screen, so while this page is in view (and its
+   * window focused) it asks for a fresh one now and then; a hover card elsewhere then shows it
+   * close to how it is now. A hidden or background page sends nothing.
+   */
+  ns.keepPreviewFresh = ({ doc, send, everyMs = FRESH_MS }) => {
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let timer;
+    const tick = () => {
+      if (doc.visibilityState === 'visible' && doc.hasFocus()) send({ type: MSG.SEEN });
+      timer = setTimeout(tick, everyMs);
+    };
+    timer = setTimeout(tick, everyMs);
+    return { dispose: () => clearTimeout(timer) };
+  };
 
   /** Neither the current tab nor one already out in a mini window. @param {HTMLElement} chip */
   const previewable = (chip) =>

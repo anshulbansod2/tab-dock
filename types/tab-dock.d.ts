@@ -43,7 +43,9 @@ type ClientMessage =
   /** Moves the tab into a mini window at these screen bounds. */
   | { type: 'peek'; tabId: number; bounds: PeekBounds }
   /** Sent from a peeked tab's own bar: put me back. */
-  | { type: 'return' };
+  | { type: 'return' }
+  /** From a bar still in view: refresh its tab's hover-card screenshot. */
+  | { type: 'seen' };
 
 type ServerMessage = { type: 'snapshot'; snapshot: Snapshot };
 

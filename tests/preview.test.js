@@ -198,3 +198,43 @@ describe('hover card', () => {
     expect(card()).toBeNull();
   });
 });
+
+describe('keepPreviewFresh', () => {
+  let fresh;
+  let sent;
+  const setPage = ({ visible = true, focused = true }) => {
+    Object.defineProperty(document, 'visibilityState', {
+      value: visible ? 'visible' : 'hidden',
+      configurable: true,
+    });
+    document.hasFocus = () => focused;
+  };
+
+  beforeEach(() => {
+    sent = [];
+    fresh = ns.keepPreviewFresh({ doc: document, send: (m) => sent.push(m) });
+  });
+
+  afterEach(() => fresh.dispose());
+
+  it('asks for a new screenshot every 30 s while the page is in view', async () => {
+    setPage({});
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sent).toEqual([{ type: 'seen' }, { type: 'seen' }]);
+  });
+
+  it('stays quiet while the tab is hidden or the window is in the background', async () => {
+    setPage({ visible: false });
+    await vi.advanceTimersByTimeAsync(30_000);
+    setPage({ focused: false });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(sent).toEqual([]);
+  });
+
+  it('stops when disposed', async () => {
+    setPage({});
+    fresh.dispose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sent).toEqual([]);
+  });
+});

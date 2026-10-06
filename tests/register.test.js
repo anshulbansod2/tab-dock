@@ -62,6 +62,12 @@ describe('previews and peeks', () => {
     expect(api.tabs.captureVisibleTab).toHaveBeenCalledWith(1, expect.anything());
   });
 
+  it('refreshes the screenshot while the bar reports the tab is still being looked at', async () => {
+    deliver({ type: 'seen' });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(api.tabs.captureVisibleTab).toHaveBeenCalledWith(1, expect.anything());
+  });
+
   it('will not hand out previews of tabs in other windows', async () => {
     api.state.tabs.push(makeTab({ id: 9, windowId: 3 }));
     expect(await reply({ type: 'preview', tabId: 9 }, createSender({ tabId: 2 }))).toBeNull();

@@ -9,7 +9,8 @@ import { MSG, UNGROUPED_ID } from './constants.js';
 export function parseClientMessage(raw) {
   if (typeof raw !== 'object' || raw === null) return null;
   const { type, tabId, toIndex, groupId, bounds } = /** @type {Record<string, unknown>} */ (raw);
-  if (type === MSG.NEW || type === MSG.HELLO || type === MSG.RETURN) return { type };
+  if (type === MSG.NEW || type === MSG.HELLO || type === MSG.RETURN || type === MSG.SEEN)
+    return { type };
   if (type === MSG.PREVIEW && isTabId(tabId)) return { type, tabId };
   if (type === MSG.PEEK && isTabId(tabId)) {
     const box = parseBounds(bounds);

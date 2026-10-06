@@ -40,6 +40,7 @@ describe('parseClientMessage', () => {
       { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320 } },
     ],
     [{ type: 'return' }, { type: 'return' }],
+    [{ type: 'seen', extra: 1 }, { type: 'seen' }],
   ])('accepts %j', (raw, expected) => {
     expect(parseClientMessage(raw)).toEqual(expected);
   });

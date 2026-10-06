@@ -201,6 +201,7 @@
       request,
       onPeek: (tabId, bounds) => send({ type: MSG.PEEK, tabId, bounds }),
     });
+    const fresh = ns.keepPreviewFresh({ doc: layer.ownerDocument, send });
     const menu = ns.createGroupMenu({ layer, win, send });
     const drop = ns.createGroupDrop({ layer });
     /** @param {number} tabId @param {number} toIndex */
@@ -234,6 +235,7 @@
       },
       dispose() {
         preview.dispose();
+        fresh.dispose();
         reorder.dispose();
         menu.dispose();
         drop.hide();

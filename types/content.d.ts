@@ -13,6 +13,7 @@ interface ContentConstants {
     PREVIEW: 'preview';
     PEEK: 'peek';
     RETURN: 'return';
+    SEEN: 'seen';
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
@@ -164,6 +165,11 @@ interface TabDockNamespace {
     onPeek(tabId: number, bounds: PeekBounds): void;
     now?: () => number;
   }): { hide(): void; dispose(): void };
+  keepPreviewFresh(options: {
+    doc: Document;
+    send(message: ClientMessage): void;
+    everyMs?: number;
+  }): { dispose(): void };
   createGroupMenu(options: {
     layer: HTMLElement;
     win: Window;

@@ -13,6 +13,7 @@ export const MSG = Object.freeze({
   PREVIEW: 'preview',
   PEEK: 'peek',
   RETURN: 'return',
+  SEEN: 'seen',
 });
 
 /** Mirrors chrome.tabGroups.TAB_GROUP_ID_NONE so pure modules need no chrome global. */
