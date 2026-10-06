@@ -39,7 +39,11 @@ async function settle() {
 }
 
 describe('previews and peeks', () => {
-  const BOUNDS = { left: 10, top: 20, width: 480, height: 320 };
+  const MEASURES = {
+    dock: { left: 300, right: 900, top: 752, bottom: 800 },
+    view: { width: 1200, height: 800 },
+    point: { screenX: 750, screenY: 906, clientX: 650, clientY: 776 },
+  };
   const reply = async (message, sender) => {
     const { sendResponse } = deliver(message, sender);
     await flushPromises();
@@ -74,7 +78,7 @@ describe('previews and peeks', () => {
   });
 
   it("peeks a tab, shows it away in its home window's bar, and returns it", async () => {
-    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    deliver({ type: 'peek', tabId: 2, ...MEASURES }, createSender({ tabId: 1 }));
     await flushPromises();
     await flushPromises();
     expect(api.windows.create).toHaveBeenCalledWith(expect.objectContaining({ tabId: 2 }));
@@ -93,7 +97,7 @@ describe('previews and peeks', () => {
   });
 
   const peekTwo = async () => {
-    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    deliver({ type: 'peek', tabId: 2, ...MEASURES }, createSender({ tabId: 1 }));
     await flushPromises();
     await flushPromises();
     api.state.tabs[1].windowId = 77; // Chrome moved it into the mini window
@@ -117,7 +121,7 @@ describe('previews and peeks', () => {
   });
 
   it('closing a mini window forgets its peek and refreshes the home window', async () => {
-    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    deliver({ type: 'peek', tabId: 2, ...MEASURES }, createSender({ tabId: 1 }));
     await flushPromises();
     await flushPromises();
     api.state.tabs.splice(1, 1);

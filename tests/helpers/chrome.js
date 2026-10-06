@@ -73,6 +73,7 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       group: vi.fn(async () => 1),
       ungroup: vi.fn(async () => undefined),
       captureVisibleTab: vi.fn(async () => 'data:image/jpeg;base64,shot'),
+      getZoom: vi.fn(async () => 1),
       move: vi.fn(async (id) => get(id)),
       sendMessage: vi.fn(async () => undefined),
       onCreated: createEvent(),

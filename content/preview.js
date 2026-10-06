@@ -11,7 +11,6 @@
   const FRESH_MS = 30_000;
   const REACH_MS = 400; // from the chip to the card, across the dock edge and the gap
   const CARD = { width: 480, edge: 8 }; // as wide as the screenshot
-  const PEEK = { minHeight: 160, titleBar: 28 };
 
   ns.bindPreview = ({ mount, ...deps }) => {
     /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -81,7 +80,7 @@
    * Chip and dock are looked up when used: a re-render (any title or icon change in the group)
    * replaces them, and a replaced node measures as an empty box at the page's top-left.
    * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window, request: Connection['request'],
-   *   onPeek: (tabId: number, bounds: PeekBounds) => void, now?: () => number,
+   *   onPeek: (tabId: number, measures: PeekMeasures) => void, now?: () => number,
    *   onEnter: () => void, onLeave: (event: MouseEvent) => void }} deps
    */
   function createCard({ mount, layer, win, request, onPeek, now = Date.now, onEnter, onLeave }) {
@@ -112,10 +111,14 @@
         const el = buildCard(tab.title, reply, now());
         el.addEventListener('pointerover', onEnter);
         el.addEventListener('pointerout', onLeave);
-        el.addEventListener('click', () => {
-          const bounds = peekBounds((dockOf() ?? dock).getBoundingClientRect(), win);
+        el.addEventListener('click', (event) => {
+          const live = (dockOf() ?? dock).getBoundingClientRect();
           hide();
-          onPeek(tabId, bounds);
+          onPeek(tabId, {
+            dock: { left: live.left, top: live.top, right: live.right, bottom: live.bottom },
+            view: { width: win.innerWidth, height: win.innerHeight },
+            point: pointOf(event),
+          });
         });
         layer.replaceChildren(el);
         place(el, chip.getBoundingClientRect(), dock.getBoundingClientRect(), win);
@@ -150,6 +153,11 @@
     return () => {
       for (const [type, listener] of listeners) target.removeEventListener(type, listener);
     };
+  }
+
+  /** @param {MouseEvent} event @returns {PeekPoint} */
+  function pointOf({ screenX, screenY, clientX, clientY }) {
+    return { screenX, screenY, clientX, clientY };
   }
 
   /** @param {Element} chip @returns {number | null} */
@@ -202,21 +210,6 @@
     return card;
   }
 
-  /** Chrome's page zoom levels, as factors. */
-  const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
-
-  /**
-   * The page's zoom: the window is as wide as its page area in screen pixels, which a zoomed
-   * page reports in its own pixels. Snapped to Chrome's levels, so a thin window border
-   * (Windows, Linux) reads as no zoom rather than a sliver of one.
-   * @param {Window} win
-   */
-  function zoomOf(win) {
-    const ratio = win.outerWidth / win.innerWidth;
-    if (!Number.isFinite(ratio) || ratio <= 0) return 1;
-    return ZOOMS.reduce((best, z) => (Math.abs(z - ratio) < Math.abs(best - ratio) ? z : best));
-  }
-
   /** @param {number} ms */
   function ago(ms) {
     const minutes = Math.floor(ms / 60_000);
@@ -242,44 +235,5 @@
     card.style.setProperty('left', `${Math.round(left)}px`);
     if (above) card.style.setProperty('bottom', `${Math.round(win.innerHeight - dock.top)}px`);
     else card.style.setProperty('top', `${Math.round(dock.bottom)}px`);
-  }
-
-  /**
-   * Screen bounds for the live window: its page exactly as wide as the dock, in the window's
-   * own shape (no taller than the room left), its outer edge resting on the dock's edge facing
-   * the page; kept on screen.
-   * @param {Pick<DOMRect, 'left' | 'width' | 'top' | 'bottom'>} rect - the dock, in page pixels
-   * @param {Window} win
-   * @returns {PeekBounds}
-   */
-  function peekBounds(rect, win) {
-    // Page sizes are in CSS pixels, which a zoomed page scales; window positions are not.
-    const zoom = zoomOf(win);
-    const dock = { left: rect.left * zoom, width: rect.width * zoom, top: rect.top * zoom };
-    const view = { width: win.innerWidth * zoom, height: win.innerHeight * zoom };
-    const bottom = rect.bottom * zoom;
-    const above = dock.top > view.height - bottom;
-    const room = Math.round((above ? dock.top : view.height - bottom) - CARD.edge);
-    const shape = Math.round((dock.width * view.height) / view.width);
-    const page = Math.max(PEEK.minHeight, Math.min(room - PEEK.titleBar, shape));
-    // The whole window, title bar included, sits beside the dock: never over it.
-    const windowTop = above ? dock.top - page - PEEK.titleBar : bottom;
-    const chromeLeft = Math.max(0, (win.outerWidth - view.width) / 2);
-    const chromeTop = Math.max(0, win.outerHeight - view.height);
-    const width = Math.round(dock.width);
-    const height = page + PEEK.titleBar;
-    let left = Math.round(win.screenX + chromeLeft + dock.left);
-    let top = Math.round(win.screenY + chromeTop + windowTop);
-    const {
-      availLeft = 0,
-      availTop = 0,
-      availWidth,
-      availHeight,
-    } = /** @type {Screen & { availLeft?: number, availTop?: number }} */ (win.screen);
-    if (availWidth > 0 && availHeight > 0) {
-      left = Math.min(Math.max(availLeft, left), availLeft + availWidth - width);
-      top = Math.min(Math.max(availTop, top), availTop + availHeight - height);
-    }
-    return { left, top, width, height };
   }
 })();

@@ -162,7 +162,7 @@ interface TabDockNamespace {
     layer: HTMLElement;
     win: Window;
     request(msg: ClientMessage): Promise<unknown>;
-    onPeek(tabId: number, bounds: PeekBounds): void;
+    onPeek(tabId: number, measures: PeekMeasures): void;
     now?: () => number;
   }): { hide(): void; dispose(): void };
   keepPreviewFresh(options: {

@@ -151,7 +151,13 @@ describe('handleAction', () => {
   });
 
   describe('peeking', () => {
-    const BOUNDS = { left: 10, top: 20, width: 480, height: 320 };
+    // the page area's top-left is at (100, 130) on screen: the click minus its client point
+    const PEEK = {
+      type: 'peek',
+      dock: { left: 300, right: 900, top: 752, bottom: 800 },
+      view: { width: 1200, height: 800 },
+      point: { screenX: 750, screenY: 906, clientX: 650, clientY: 776 },
+    };
     let peeks;
 
     beforeEach(() => {
@@ -163,9 +169,16 @@ describe('handleAction', () => {
       };
     });
 
-    it('opens a tab from the same window in a mini window', async () => {
-      await handleAction({ type: 'peek', tabId: 2, bounds: BOUNDS }, client, api, peeks);
-      expect(peeks.open).toHaveBeenCalledWith(2, BOUNDS);
+    it('opens a tab from the same window in a window resting on the dock', async () => {
+      await handleAction({ ...PEEK, tabId: 2 }, client, api, peeks);
+      expect(peeks.open).toHaveBeenCalledWith(2, { left: 400, top: 454, width: 600, height: 428 });
+    });
+
+    it("sizes it by the sending page's own zoom, as Chrome reports it", async () => {
+      api.tabs.getZoom.mockResolvedValue(1.25);
+      await handleAction({ ...PEEK, tabId: 2 }, client, api, peeks);
+      expect(api.tabs.getZoom).toHaveBeenCalledWith(1);
+      expect(peeks.open).toHaveBeenCalledWith(2, expect.objectContaining({ width: 750 }));
     });
 
     it.each([
@@ -173,7 +186,7 @@ describe('handleAction', () => {
       ["the bar's own tab", 1],
     ])('will not peek a tab from %s', async (_name, tabId) => {
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      await handleAction({ type: 'peek', tabId, bounds: BOUNDS }, client, api, peeks);
+      await handleAction({ ...PEEK, tabId }, client, api, peeks);
       expect(peeks.open).not.toHaveBeenCalled();
     });
 

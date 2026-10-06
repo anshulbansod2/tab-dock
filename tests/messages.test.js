@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+
+const DOCK = { left: 300.5, top: 752, right: 900, bottom: 800 };
+const VIEW = { width: 1200, height: 800 };
+const POINT = { screenX: 750, screenY: 906, clientX: 650, clientY: 776 };
 import { identifySender, parseClientMessage } from '../background/messages.js';
 import { createSender } from './helpers/chrome.js';
 
@@ -36,8 +40,8 @@ describe('parseClientMessage', () => {
       { type: 'preview', tabId: 3 },
     ],
     [
-      { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320, x: 1 } },
-      { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320 } },
+      { type: 'peek', tabId: 3, dock: { ...DOCK, x: 1 }, view: VIEW, point: POINT, bounds: {} },
+      { type: 'peek', tabId: 3, dock: DOCK, view: VIEW, point: POINT },
     ],
     [{ type: 'return' }, { type: 'return' }],
     [{ type: 'seen', extra: 1 }, { type: 'seen' }],
@@ -65,10 +69,13 @@ describe('parseClientMessage', () => {
     { type: 'newgroup' },
     { type: 'preview' },
     { type: 'peek', tabId: 3 },
-    { type: 'peek', tabId: 3, bounds: { left: 0, top: 0, width: 480 } },
-    { type: 'peek', tabId: 3, bounds: { left: 0, top: 0, width: 10, height: 320 } },
-    { type: 'peek', tabId: 3, bounds: { left: 0.5, top: 0, width: 480, height: 320 } },
-    { type: 'peek', tabId: 3, bounds: { left: 1e9, top: 0, width: 480, height: 320 } },
+    { type: 'peek', tabId: 3, dock: DOCK, view: VIEW },
+    { type: 'peek', tabId: 3, dock: { ...DOCK, right: 100 }, view: VIEW, point: POINT },
+    { type: 'peek', tabId: 3, dock: { ...DOCK, bottom: 700 }, view: VIEW, point: POINT },
+    { type: 'peek', tabId: 3, dock: DOCK, view: { width: 0, height: 800 }, point: POINT },
+    { type: 'peek', tabId: 3, dock: DOCK, view: VIEW, point: { ...POINT, screenX: NaN } },
+    { type: 'peek', tabId: 3, dock: DOCK, view: VIEW, point: { ...POINT, clientY: '7' } },
+    { type: 'peek', tabId: 3, dock: { ...DOCK, top: -1e9 }, view: VIEW, point: POINT },
   ])('rejects %j', (raw) => {
     expect(parseClientMessage(raw)).toBeNull();
   });

@@ -1,6 +1,7 @@
 // @ts-check
 import { MSG, UNGROUPED_ID } from './constants.js';
 import { isStaleTabError, logger } from './logger.js';
+import { peekBounds } from './geometry.js';
 import { effectiveGroupId } from './tabModel.js';
 
 /**
@@ -54,7 +55,8 @@ async function actOnTab(msg, senderTabId, api, peeks) {
 }
 
 /**
- * Moves another tab of the sender's window into a mini window.
+ * Moves another tab of the sender's window into a mini window resting on the sender's dock.
+ * The page's zoom comes from Chrome, not from the page's own guess.
  * @param {Extract<ClientMessage, { type: 'peek' }>} msg
  * @param {number} senderTabId
  * @param {typeof chrome} api
@@ -66,7 +68,8 @@ async function openPeek(msg, senderTabId, api, peeks) {
     logger.warn('ignored peek outside the bar');
     return;
   }
-  await peeks?.open(msg.tabId, msg.bounds);
+  const zoom = await api.tabs.getZoom(senderTabId);
+  await peeks?.open(msg.tabId, peekBounds({ ...msg, zoom }));
 }
 
 /**

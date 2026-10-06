@@ -40,8 +40,14 @@ type ClientMessage =
   | { type: 'newgroup'; tabId: number }
   /** Asks for the tab's hover-card screenshot (replied to, like hello). */
   | { type: 'preview'; tabId: number }
-  /** Moves the tab into a mini window at these screen bounds. */
-  | { type: 'peek'; tabId: number; bounds: PeekBounds }
+  /** Moves the tab into a mini window resting on the sender's dock (measured in its page). */
+  | {
+      type: 'peek';
+      tabId: number;
+      dock: PeekDock;
+      view: { width: number; height: number };
+      point: PeekPoint;
+    }
   /** Sent from a peeked tab's own bar: put me back. */
   | { type: 'return' }
   /** From a bar still in view: refresh its tab's hover-card screenshot. */
@@ -60,6 +66,29 @@ interface PeekOrigin {
   windowId: number;
   index: number;
   groupId: number;
+}
+
+/** The dock's rectangle as a page measures it (CSS pixels, page zoom included). */
+interface PeekDock {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** The click that opened a peek: where it was on screen and in the page. */
+interface PeekPoint {
+  screenX: number;
+  screenY: number;
+  clientX: number;
+  clientY: number;
+}
+
+/** What a page measures for a peek; the background turns it into screen bounds. */
+interface PeekMeasures {
+  dock: PeekDock;
+  view: { width: number; height: number };
+  point: PeekPoint;
 }
 
 /** A peek window's screen rectangle. */
