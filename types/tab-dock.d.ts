@@ -61,6 +61,7 @@ interface PeekOrigin {
   index: number;
   groupId: number;
   pinned: boolean;
+  url: string | undefined;
 }
 
 /** A peek window's screen rectangle. */
