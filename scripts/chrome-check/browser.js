@@ -14,7 +14,7 @@ const CHROME_PATHS = [
   '/usr/bin/google-chrome-stable',
   '/usr/bin/chromium',
 ];
-const EXTENSION_PARTS = ['manifest.json', 'background', 'content', 'icons'];
+const EXTENSION_PARTS = ['manifest.json', 'background', 'content', 'popup', 'icons'];
 export const PAGES = ['one', 'two', 'three', 'four'];
 
 /** @returns {Promise<number>} */

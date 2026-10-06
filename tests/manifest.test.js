@@ -45,9 +45,15 @@ describe('manifest.json', () => {
     expect(cs.js.at(-1)).toBe('content/main.js');
   });
 
+  it('opens the dock as a toolbar popup on Alt+Shift+D, for pages without one', () => {
+    expect(manifest.action.default_popup).toBe('popup/popup.html');
+    expect(manifest.commands._execute_action.suggested_key).toEqual({ default: 'Alt+Shift+D' });
+  });
+
   it('references only files that exist', () => {
     const files = [
       manifest.background.service_worker,
+      manifest.action.default_popup,
       ...manifest.content_scripts.flatMap((cs) => cs.js),
       ...Object.values(manifest.icons),
     ];
