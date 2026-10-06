@@ -229,10 +229,12 @@
    */
   function place(card, chip, dock, win) {
     const above = dock.top > win.innerHeight - dock.bottom;
-    const centre = chip.left + chip.width / 2 - CARD.width / 2;
-    const left = Math.min(Math.max(CARD.edge, centre), win.innerWidth - CARD.width - CARD.edge);
+    const width = Math.min(CARD.width, win.innerWidth - 2 * CARD.edge); // narrow windows
+    const centre = chip.left + chip.width / 2 - width / 2;
+    const left = Math.min(Math.max(CARD.edge, centre), win.innerWidth - width - CARD.edge);
     card.dataset.side = above ? 'above' : 'below';
     card.style.setProperty('left', `${Math.round(left)}px`);
+    card.style.setProperty('width', `${Math.round(width)}px`);
     if (above) card.style.setProperty('bottom', `${Math.round(win.innerHeight - dock.top)}px`);
     else card.style.setProperty('top', `${Math.round(dock.bottom)}px`);
   }

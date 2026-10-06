@@ -156,6 +156,14 @@ describe('hover card', () => {
     });
   });
 
+  it('narrows to fit a window slimmer than the card', async () => {
+    setWindow({ innerWidth: 400 });
+    chipAt(2, { left: 150, top: 100 });
+    await hoverFor(300);
+    expect(card().style.left).toBe('8px');
+    expect(card().style.width).toBe(`${400 - 16}px`);
+  });
+
   it('says so when there is no screenshot yet', async () => {
     request.mockResolvedValueOnce(null);
     await hoverFor(300);
