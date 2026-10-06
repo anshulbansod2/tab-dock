@@ -15,13 +15,13 @@ import { buildSnapshot } from './tabModel.js';
  * @param {typeof chrome} deps.api
  * @param {Pick<ReturnType<typeof createFavicons>, 'inline'>} [deps.favicons]
  * @param {number} [deps.debounceMs]
- * @param {Pick<Returns, 'get'>} [deps.returns] - each window's way back, for its Back button
+ * @param {Pick<Peeks, 'all'>} [deps.peeks] - live peeks, so bars show peeked tabs as away
  */
 export function createHub({
   api,
   favicons = createFavicons({ api }),
   debounceMs = BROADCAST_DEBOUNCE_MS,
-  returns,
+  peeks,
 }) {
   // In-memory on purpose: chrome.alarms can't fire sooner than 30 s, too coarse to debounce.
   // Losing a pending timer when the worker stops only drops one push; the next tab event or
@@ -42,8 +42,8 @@ export function createHub({
    */
   async function snapshotFor(client) {
     lastSent.delete(client.tabId); // a (re)loaded bar knows nothing yet: never skip its next push
-    const state = await windowState(api, client.windowId, returns);
-    return favicons.inline(buildSnapshot({ ...state, tabId: client.tabId }), state.tabs);
+    const state = await windowState(api, client.windowId, peeks);
+    return favicons.inline(snapshotOf(state, client.tabId), withAway(state));
   }
 
   /**
@@ -55,11 +55,11 @@ export function createHub({
    * @param {number} windowId
    */
   async function pushToWindow(windowId) {
-    const state = await windowState(api, windowId, returns);
-    const pending = planPushes({ ...state, lastSent, favicons });
+    const state = await windowState(api, windowId, peeks);
+    const pending = planPushes({ state, lastSent, favicons });
     await Promise.all(
-      pending.map(({ tab, key, shared, back }) =>
-        pushTo({ api, lastSent }, tab, key, shared, back),
+      pending.map(({ tab, key, shared, peek }) =>
+        pushTo({ api, lastSent }, tab, key, shared, peek),
       ),
     );
   }
@@ -100,33 +100,66 @@ export function createHub({
 }
 
 /**
+ * The window's tabs and groups, plus its tabs peeked out into mini windows (`away`) and, for
+ * tabs of this window that are themselves peeked, the group each returns to (`homes`).
  * @param {typeof chrome} api
  * @param {number} windowId
- * @param {Pick<Returns, 'get'>} [returns]
+ * @param {Pick<Peeks, 'all'>} [peeks]
+ * @returns {Promise<WindowState>}
  */
-async function windowState(api, windowId, returns) {
-  const [tabs, groups, trail] = await Promise.all([
+async function windowState(api, windowId, peeks) {
+  const [tabs, groups, peeked] = await Promise.all([
     api.tabs.query({ windowId }),
     api.tabGroups.query({ windowId }),
-    returns ? returns.get(windowId) : null,
+    peeks ? peeks.all() : new Map(),
   ]);
-  return { tabs, groups, trail };
+  /** @type {WindowState['away']} */
+  const away = [];
+  /** @type {WindowState['homes']} */
+  const homes = new Map();
+  for (const [tabId, origin] of peeked) {
+    const here = tabs.some((tab) => tab.id === tabId);
+    if (here) homes.set(tabId, await groupOrNull(api, origin.groupId));
+    else if (origin.windowId === windowId) {
+      const tab = await api.tabs.get(tabId).catch(() => null);
+      if (tab) away.push({ tab, origin });
+    }
+  }
+  return { tabs, groups, away, homes };
 }
+
+/**
+ * @param {typeof chrome} api
+ * @param {number} groupId
+ */
+async function groupOrNull(api, groupId) {
+  if (groupId === UNGROUPED_ID) return null;
+  return api.tabGroups.get(groupId).catch(() => null);
+}
+
+/** @param {WindowState} state @param {number} tabId */
+const snapshotOf = (state, tabId) => buildSnapshot({ ...state, tabId, home: homeOf(state, tabId) });
+
+/** @param {WindowState} state @param {number} tabId */
+const homeOf = (state, tabId) => (state.homes.has(tabId) ? state.homes.get(tabId) : undefined);
+
+/** Every tab a snapshot may show, for favicon lookup. @param {WindowState} state */
+const withAway = (state) => [...state.tabs, ...state.away.map(({ tab }) => tab)];
 
 /**
  * @param {{ api: typeof chrome, lastSent: Map<number, string> }} deps
  * @param {chrome.tabs.Tab} tab - has an id
  * @param {string} key - recorded only once the bar has it, so a failed push is retried
  * @param {Promise<Snapshot>} shared - the group's snapshot with favicons inlined
- * @param {Snapshot['back']} [back] - this bar's own way back
+ * @param {Snapshot['peek']} [peek] - this bar's own peek state
  */
-async function pushTo({ api, lastSent }, tab, key, shared, back) {
+async function pushTo({ api, lastSent }, tab, key, shared, peek) {
   const tabId = /** @type {number} */ (tab.id);
   const group = await shared;
   /** @type {Snapshot} */
   const snapshot = { ...group, tabs: group.tabs.map((t) => ({ ...t, active: t.id === tabId })) };
-  if (back) snapshot.back = back;
-  else delete snapshot.back; // the way back is per bar; the group's copy may carry another's
+  if (peek) snapshot.peek = peek;
+  else delete snapshot.peek;
   /** @type {ServerMessage} */
   const message = { type: MSG.SNAPSHOT, snapshot };
   try {
@@ -158,23 +191,21 @@ async function injectBar(api, tab) {
 /**
  * The bars whose content changed, each with its key and its group's shared snapshot.
  * @param {object} input
- * @param {chrome.tabs.Tab[]} input.tabs
- * @param {chrome.tabGroups.TabGroup[]} input.groups
- * @param {Trail | null} input.trail
+ * @param {WindowState} input.state
  * @param {Map<number, string>} input.lastSent
  * @param {Pick<ReturnType<typeof createFavicons>, 'inline'>} input.favicons
  */
-function planPushes({ tabs, groups, trail, lastSent, favicons }) {
+function planPushes({ state, lastSent, favicons }) {
   /** @type {Map<number, Promise<Snapshot>>} */
   const perGroup = new Map();
-  return tabs.flatMap((tab) => {
+  return state.tabs.flatMap((tab) => {
     if (tab.id === undefined || tab.discarded || !INJECTABLE_URL.test(tab.url ?? '')) return [];
-    const built = buildSnapshot({ tabs, groups, trail, tabId: tab.id });
+    const built = buildSnapshot({ ...state, tabId: tab.id, home: homeOf(state, tab.id) });
     const key = JSON.stringify(built);
     if (key === lastSent.get(tab.id)) return [];
     const groupKey = built.group?.id ?? UNGROUPED_ID;
-    if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, tabs));
+    if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, withAway(state)));
     const shared = /** @type {Promise<Snapshot>} */ (perGroup.get(groupKey));
-    return [{ tab, key, shared, back: built.back }];
+    return [{ tab, key, shared, peek: built.peek }];
   });
 }

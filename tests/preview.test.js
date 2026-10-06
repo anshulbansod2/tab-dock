@@ -10,6 +10,7 @@ const snapshot = {
   tabs: [
     { id: 1, title: 'Current', favIconUrl: null, active: true },
     { id: 2, title: 'YouTube', favIconUrl: null, active: false },
+    { id: 3, title: 'Away', favIconUrl: null, active: false, away: true },
     { id: 4, title: 'Docs', favIconUrl: null, active: false },
   ],
 };
@@ -101,11 +102,10 @@ describe('hover card', () => {
     expect(card().textContent).toContain('3 min ago');
   });
 
-  it('hangs from the dock edge facing the page, exactly as wide as the dock', async () => {
+  it('hangs from the dock edge facing the page, centred on the chip', async () => {
     await hoverFor(300);
     expect(card().style.top).toBe('140px'); // flush with the dock's bottom edge
-    expect(card().style.left).toBe('300px');
-    expect(card().style.width).toBe('600px');
+    expect(card().style.left).toBe(`${560 - 240}px`); // chip centre minus half the card
     expect(card().dataset.side).toBe('below');
   });
 
@@ -118,13 +118,10 @@ describe('hover card', () => {
     expect(card().dataset.side).toBe('above');
   });
 
-  it('keeps the picture to the room between the dock and the window edge', async () => {
-    chipAt(2, { left: 500, top: 760 });
-    dockAt({ top: 752, bottom: 800 });
-    setWindow({ innerHeight: 800 });
+  it('stays inside the window next to an edge chip', async () => {
+    chipAt(2, { left: 1150, top: 100 });
     await hoverFor(300);
-    // 752 px above the dock, less the 8 px margin and the 56 px caption
-    expect(card().style.getPropertyValue('--hh-card-room')).toBe('688px');
+    expect(card().style.left).toBe(`${1200 - 480 - 8}px`);
   });
 
   it('says so when there is no screenshot yet', async () => {
@@ -140,8 +137,9 @@ describe('hover card', () => {
     expect(card().querySelector('img')).toBeNull();
   });
 
-  it('shows nothing for the current tab', async () => {
+  it('shows nothing for the current tab or one already out in a mini window', async () => {
     await hoverFor(300, tabEl(1));
+    await hoverFor(300, tabEl(3));
     expect(card()).toBeNull();
     expect(request).not.toHaveBeenCalled();
   });
@@ -208,11 +206,27 @@ describe('hover card', () => {
     expect(card()).toBeNull();
   });
 
-  it('opens the real tab when clicked', async () => {
+  it('opens the live tab in a window exactly as wide as the dock, resting on it', async () => {
+    setWindow({ screenX: 100, screenY: 50, outerWidth: 1200, outerHeight: 880 });
+    chipAt(2, { left: 500, top: 760 });
+    dockAt({ top: 752, bottom: 800 });
     await hoverFor(300);
     card().click();
-    expect(onPeek).toHaveBeenCalledWith(2);
+    // page area: the dock's width (600) in the window's shape (600 × 400), its bottom on the
+    // dock's top edge (752 + 80 px of browser chrome + 50 screen offset); title bar on top
+    expect(onPeek).toHaveBeenCalledWith(2, { left: 400, top: 454, width: 600, height: 428 });
     expect(card()).toBeNull();
+  });
+
+  it('hangs the live window below a dock at the top, no taller than the room left', async () => {
+    setWindow({ screenX: 100, screenY: 50, outerWidth: 1200, outerHeight: 880, innerHeight: 500 });
+    await hoverFor(300);
+    card().click();
+    // the window's shape gives 600 × 250, which fits the 352 px left below the dock
+    expect(onPeek).toHaveBeenCalledWith(2, expect.objectContaining({ left: 400, width: 600 }));
+    const { top, height } = onPeek.mock.calls[0][1];
+    expect(top).toBe(50 + 380 + 140 - 28); // chrome is 880 - 500 tall
+    expect(height).toBe(Math.min(352, Math.round((600 * 500) / 1200)) + 28);
   });
 
   it('drops a reply that arrives after the pointer moved on', async () => {

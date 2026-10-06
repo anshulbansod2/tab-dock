@@ -38,7 +38,8 @@ async function settle() {
   await flushPromises();
 }
 
-describe('previews and opening in place', () => {
+describe('previews and peeks', () => {
+  const BOUNDS = { left: 10, top: 20, width: 480, height: 320 };
   const reply = async (message, sender) => {
     const { sendResponse } = deliver(message, sender);
     await flushPromises();
@@ -72,42 +73,59 @@ describe('previews and opening in place', () => {
     expect(await reply({ type: 'preview', tabId: 9 }, createSender({ tabId: 2 }))).toBeNull();
   });
 
-  const openTwo = async () => {
-    deliver({ type: 'peek', tabId: 2 }, createSender({ tabId: 1 }));
+  it("peeks a tab, shows it away in its home window's bar, and returns it", async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
     await flushPromises();
     await flushPromises();
-    api.state.tabs[0].active = false;
-    api.state.tabs[1].active = true;
+    expect(api.windows.create).toHaveBeenCalledWith(expect.objectContaining({ tabId: 2 }));
+    api.state.tabs[1].windowId = 77; // Chrome moved it into the mini window
+    const home = await reply({ type: 'hello' }, createSender({ tabId: 1 }));
+    expect(home.tabs.map((t) => [t.id, Boolean(t.away)])).toEqual([
+      [1, false],
+      [2, true],
+    ]);
+    const mini = await reply({ type: 'hello' }, createSender({ tabId: 2, windowId: 77 }));
+    expect(mini.peek).toEqual({ home: { id: 10, title: 'Work', color: 'blue' } });
+    deliver({ type: 'return' }, createSender({ tabId: 2, windowId: 77 }));
+    await flushPromises();
+    await flushPromises();
+    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
+  });
+
+  const peekTwo = async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    api.state.tabs[1].windowId = 77; // Chrome moved it into the mini window
   };
 
-  it("opens a card's tab in place, whose bar then offers the way back", async () => {
-    await openTwo();
-    expect(api.tabs.update).toHaveBeenCalledWith(2, { active: true });
-    const opened = await reply({ type: 'hello' }, createSender({ tabId: 2 }));
-    expect(opened.back).toEqual({ tabId: 1, title: 'Tab 1' });
-    const origin = await reply({ type: 'hello' }, createSender({ tabId: 1 }));
-    expect(origin.back).toBeUndefined();
-    deliver({ type: 'return' }, createSender({ tabId: 2 }));
+  it('puts a peeked tab back as soon as its home window is used again', async () => {
+    await peekTwo();
+    api.windows.onFocusChanged.emit(1);
     await flushPromises();
     await flushPromises();
-    expect(api.tabs.update).toHaveBeenLastCalledWith(1, { active: true });
+    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
   });
 
-  it('drops the way back once another tab comes to the front', async () => {
-    await openTwo();
-    api.tabs.onActivated.emit({ tabId: 1, windowId: 1 });
+  it('leaves it out while focus is in the mini window or another app', async () => {
+    await peekTwo();
+    api.windows.onFocusChanged.emit(77);
+    api.windows.onFocusChanged.emit(-1);
     await flushPromises();
     await flushPromises();
-    expect((await reply({ type: 'hello' }, createSender({ tabId: 2 }))).back).toBeUndefined();
+    expect(api.tabs.move).not.toHaveBeenCalled();
   });
 
-  it('drops the way back when the tab it leads to closes', async () => {
-    await openTwo();
-    api.state.tabs.splice(0, 1);
-    api.tabs.onRemoved.emit(1, { windowId: 1, isWindowClosing: false });
+  it('closing a mini window forgets its peek and refreshes the home window', async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    api.state.tabs.splice(1, 1);
+    api.tabs.onRemoved.emit(2, { windowId: 77, isWindowClosing: true });
     await flushPromises();
     await settle();
     expect(api.storage.session.data).toEqual({});
+    expect(api.tabs.sendMessage).toHaveBeenCalledWith(1, expect.anything(), { frameId: 0 });
   });
 });
 

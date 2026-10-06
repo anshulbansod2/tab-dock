@@ -27,9 +27,10 @@ Tabs that were already open get the bar the first time you switch to them — no
   **Remove from group** or **Close tab** — or drag the chip up off the dock and drop it on a
   group's dot.
 - Hover a chip and a card grows out of the dock showing that tab as you last saw it (the tab
-  you are on refreshes its picture every 30 s). Click the card to switch to the real tab right
-  there; the dock then leads with a **Back** button naming the tab you came from, until you
-  move on to another tab.
+  you are on refreshes its picture every 30 s). Click the card to open the tab live in a window
+  exactly as wide as the dock, resting on it, without leaving the page you're on; **Return to <group>** in that
+  window puts it back where it was. Chrome can't keep that window on top, so clicking back
+  into the main window also puts the tab back, the way a popover closes.
 - Keyboard: focus a chip, then ←/→/Home/End to move, Enter/Space to switch, Delete to close,
   Alt+Shift+←/→ to reorder, Shift+F10 (or the menu key) for the tab menu. With the group
   name focused, Alt+arrows move the dock and Alt+Home puts it back.
@@ -48,7 +49,7 @@ listens in the capture phase on `window` can still see them; that is a browser l
   touches the others), and hidden tabs only store the update: Chrome holds their repaint
   until they are shown.
 - Hover screenshots are taken only of the tab you are looking at, once it has settled for a
-  moment, shrunk to at most about 50 KB and kept in memory only (`storage.session`, the 60 most
+  moment, shrunk to about 25 KB and kept in memory only (`storage.session`, the 60 most
   recent). Incognito and browser pages are never captured; a site change drops the old one.
 - Favicons come from Chrome's own cache as small inline images, cached per site (bounded),
   so pages never fetch — or learn about — other tabs' sites.

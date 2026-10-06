@@ -374,12 +374,12 @@ describe('mountBar', () => {
     const card = shadow().querySelector('.hh-card');
     expect(card.querySelector('img').src).toBe('data:image/jpeg;base64,x');
     card.click();
-    expect(actions()).toContainEqual({ type: 'peek', tabId: 2 });
+    expect(actions()).toContainEqual(expect.objectContaining({ type: 'peek', tabId: 2 }));
     vi.useRealTimers();
   });
 
-  it('goes back to the tab a card was opened from', async () => {
-    push({ ...snapshot, back: { tabId: 1, title: 'Tab 1' } });
+  it('sends a peeked tab home from its Return button', async () => {
+    push({ ...snapshot, peek: { home: snapshot.group } });
     await settle();
     q('[data-action="return"]').click();
     expect(actions()).toEqual([{ type: 'return' }]);

@@ -108,7 +108,7 @@ describe('tab previews', () => {
 describe('shrinkImage', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('scales a screenshot down to 800 px wide (sharp on a dock-wide card) as a JPEG data URL', async () => {
+  it('scales a screenshot down to card width as a JPEG data URL', async () => {
     const drawImage = vi.fn();
     const close = vi.fn();
     vi.stubGlobal('fetch', async () => ({ blob: async () => new Blob(['png']) }));
@@ -125,7 +125,7 @@ describe('shrinkImage', () => {
       },
     );
     const url = await shrinkImage('data:image/png;base64,x');
-    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 800, 500);
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 480, 300);
     expect(close).toHaveBeenCalled();
     expect(url).toBe(`data:image/jpeg;base64,${btoa('hi')}`);
   });

@@ -14,6 +14,8 @@ interface BarTab {
   favIconUrl: string | null;
   /** True only for the tab this bar is rendered in. */
   active: boolean;
+  /** Out in a mini window (peeked); clicking brings that window forward. */
+  away?: boolean;
 }
 
 interface Snapshot {
@@ -22,8 +24,8 @@ interface Snapshot {
   tabs: BarTab[];
   /** Every group in the window, in strip order: where a tab can be moved to. */
   groups: BarGroup[];
-  /** Set on a tab opened off a hover card: the tab it was opened from, for the Back button. */
-  back?: { tabId: number; title: string };
+  /** Set when this bar's tab is peeked into a mini window: the group it returns to. */
+  peek?: { home: BarGroup | null };
 }
 
 type ClientMessage =
@@ -38,9 +40,9 @@ type ClientMessage =
   | { type: 'newgroup'; tabId: number }
   /** Asks for the tab's hover-card screenshot (replied to, like hello). */
   | { type: 'preview'; tabId: number }
-  /** A hover card was clicked: switch to that tab, remembering the way back. */
-  | { type: 'peek'; tabId: number }
-  /** The Back button: go back to the tab this one was opened from. */
+  /** Moves the tab into a mini window at these screen bounds. */
+  | { type: 'peek'; tabId: number; bounds: PeekBounds }
+  /** Sent from a peeked tab's own bar: put me back. */
   | { type: 'return' }
   /** From a bar still in view: refresh its tab's hover-card screenshot. */
   | { type: 'seen' };
@@ -53,10 +55,28 @@ interface ClientInfo {
   windowId: number;
 }
 
-/** A window's way back from a tab opened off a hover card (background/returns.js). */
-interface Trail {
-  from: number;
-  to: number;
+/** Where a peeked tab came from, to put it back. */
+interface PeekOrigin {
+  windowId: number;
+  index: number;
+  groupId: number;
 }
 
-type Returns = ReturnType<typeof import('../background/returns.js').createReturns>;
+/** A peek window's screen rectangle. */
+interface PeekBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** The background's live-peek store (background/peek.js). */
+type Peeks = ReturnType<typeof import('../background/peek.js').createPeeks>;
+
+/** A window as the hub sees it (background/hub.js). */
+interface WindowState {
+  tabs: chrome.tabs.Tab[];
+  groups: chrome.tabGroups.TabGroup[];
+  away: { tab: chrome.tabs.Tab; origin: PeekOrigin }[];
+  homes: Map<number, chrome.tabGroups.TabGroup | null>;
+}
