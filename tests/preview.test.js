@@ -102,10 +102,11 @@ describe('hover card', () => {
     expect(card().textContent).toContain('3 min ago');
   });
 
-  it('hangs from the dock edge facing the page, centred on the chip', async () => {
+  it('hangs from the dock edge facing the page, exactly as wide as the dock', async () => {
     await hoverFor(300);
     expect(card().style.top).toBe('140px'); // flush with the dock's bottom edge
-    expect(card().style.left).toBe(`${560 - 240}px`); // chip centre minus half the card
+    expect(card().style.left).toBe('300px');
+    expect(card().style.width).toBe('600px');
     expect(card().dataset.side).toBe('below');
   });
 
@@ -118,10 +119,13 @@ describe('hover card', () => {
     expect(card().dataset.side).toBe('above');
   });
 
-  it('stays inside the window next to an edge chip', async () => {
-    chipAt(2, { left: 1150, top: 100 });
+  it('keeps the picture to the room between the dock and the window edge', async () => {
+    chipAt(2, { left: 500, top: 760 });
+    dockAt({ top: 752, bottom: 800 });
+    setWindow({ innerHeight: 800 });
     await hoverFor(300);
-    expect(card().style.left).toBe(`${1200 - 480 - 8}px`);
+    // 752 px above the dock, less the 8 px margin and the 56 px caption
+    expect(card().style.getPropertyValue('--hh-card-room')).toBe('688px');
   });
 
   it('says so when there is no screenshot yet', async () => {
@@ -209,10 +213,10 @@ describe('hover card', () => {
   it('turns into the live tab when clicked, in a mini window where the card was', async () => {
     setWindow({ screenX: 100, screenY: 50, outerWidth: 1200, outerHeight: 880 });
     await hoverFor(300);
-    card().getBoundingClientRect = () => ({ left: 400, top: 140, width: 480, height: 350 });
+    card().getBoundingClientRect = () => ({ left: 300, top: 140, width: 600, height: 430 });
     card().click();
     // the window's page area lands exactly on the card; its title bar sits just above
-    expect(onPeek).toHaveBeenCalledWith(2, { left: 500, top: 242, width: 480, height: 378 });
+    expect(onPeek).toHaveBeenCalledWith(2, { left: 400, top: 242, width: 600, height: 458 });
     expect(card()).toBeNull();
   });
 

@@ -174,7 +174,7 @@
 @media (prefers-reduced-motion: reduce) { .hh-drop-target { transition: none; } }
 /* Hover card: the tab as last seen; a click opens it live in a mini window. */
 .hh-card {
-  all: unset; position: fixed; pointer-events: auto; box-sizing: border-box; width: 480px;
+  all: unset; position: fixed; pointer-events: auto; box-sizing: border-box;
   display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; cursor: pointer;
   color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
   border: 1px solid var(--hh-edge); backdrop-filter: blur(20px) saturate(1.8);
@@ -191,7 +191,8 @@
 }
 .hh-card:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 1px; }
 .hh-card-image {
-  display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top;
+  display: block; width: 100%; aspect-ratio: var(--hh-card-ratio, 16 / 10);
+  max-height: var(--hh-card-room, 60vh); object-fit: cover; object-position: left top;
   background: var(--hh-chip); border-bottom: 1px solid var(--hh-edge);
 }
 .hh-card-empty {

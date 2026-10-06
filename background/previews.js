@@ -6,7 +6,7 @@ const KEY_PREFIX = 'preview:';
 const INDEX_KEY = 'preview:index';
 const DEFAULT_MAX = 60;
 const DEFAULT_SETTLE_MS = 600;
-const WIDTH_PX = 480;
+const WIDTH_PX = 800;
 
 /**
  * Screenshots of tabs as the user last saw them, for the dock's hover cards. Chrome only lets
@@ -137,7 +137,7 @@ function originOf(url) {
 }
 
 /**
- * Scales a screenshot down to card size as a JPEG data: URL (about 25 KB).
+ * Scales a screenshot down to card size as a JPEG data: URL (about 50 KB for a busy page).
  * @param {string} dataUrl
  */
 export async function shrinkImage(dataUrl) {

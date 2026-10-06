@@ -49,7 +49,7 @@ listens in the capture phase on `window` can still see them; that is a browser l
   touches the others), and hidden tabs only store the update: Chrome holds their repaint
   until they are shown.
 - Hover screenshots are taken only of the tab you are looking at, once it has settled for a
-  moment, shrunk to about 25 KB and kept in memory only (`storage.session`, the 60 most
+  moment, shrunk to at most about 50 KB and kept in memory only (`storage.session`, the 60 most
   recent). Incognito and browser pages are never captured; a site change drops the old one.
 - Favicons come from Chrome's own cache as small inline images, cached per site (bounded),
   so pages never fetch — or learn about — other tabs' sites.

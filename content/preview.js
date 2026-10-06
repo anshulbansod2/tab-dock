@@ -10,8 +10,8 @@
   const LEAVE_MS = 150; // off the card: the user is done with it
   const FRESH_MS = 30_000;
   const REACH_MS = 400; // from the chip to the card, across the dock edge and the gap
-  const CARD = { width: 480, edge: 8 }; // as wide as the mini window, and the screenshot
-  const PEEK = { width: 480, height: 320, titleBar: 28 };
+  const CARD = { edge: 8, caption: 56 };
+  const PEEK = { width: 320, height: 240, titleBar: 28 };
 
   ns.bindPreview = ({ mount, ...deps }) => {
     /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -109,7 +109,7 @@
         });
         layer.replaceChildren(el);
         const dock = chip.closest('.hh-bar') ?? chip;
-        place(el, chip.getBoundingClientRect(), dock.getBoundingClientRect(), win);
+        place(el, dock.getBoundingClientRect(), win);
         shown = el;
       },
     };
@@ -184,20 +184,22 @@
   }
 
   /**
-   * Attached to the dock: flush with its edge facing the larger part of the page (growing up
-   * from a dock at the bottom), centred on the chip and kept inside the window. A card above
-   * is pinned by its bottom so its height never has to be known.
+   * Attached to the dock: exactly as wide, flush with its edge facing the larger part of the
+   * page (growing up from a dock at the bottom). A card above is pinned by its bottom so its
+   * height never has to be known; the picture keeps the window's shape but never outgrows the
+   * room left between the dock and the window edge.
    * @param {HTMLElement} card
-   * @param {Pick<DOMRect, 'left' | 'width'>} chip
-   * @param {Pick<DOMRect, 'top' | 'bottom'>} dock
+   * @param {Pick<DOMRect, 'left' | 'width' | 'top' | 'bottom'>} dock
    * @param {Window} win
    */
-  function place(card, chip, dock, win) {
+  function place(card, dock, win) {
     const above = dock.top > win.innerHeight - dock.bottom;
-    const centre = chip.left + chip.width / 2 - CARD.width / 2;
-    const left = Math.min(Math.max(CARD.edge, centre), win.innerWidth - CARD.width - CARD.edge);
+    const room = (above ? dock.top : win.innerHeight - dock.bottom) - CARD.edge - CARD.caption;
     card.dataset.side = above ? 'above' : 'below';
-    card.style.setProperty('left', `${Math.round(left)}px`);
+    card.style.setProperty('left', `${Math.round(dock.left)}px`);
+    card.style.setProperty('width', `${Math.round(dock.width)}px`);
+    card.style.setProperty('--hh-card-room', `${Math.max(0, Math.round(room))}px`);
+    card.style.setProperty('--hh-card-ratio', `${win.innerWidth} / ${win.innerHeight}`);
     if (above) card.style.setProperty('bottom', `${Math.round(win.innerHeight - dock.top)}px`);
     else card.style.setProperty('top', `${Math.round(dock.bottom)}px`);
   }
