@@ -11,6 +11,7 @@ const snapshot = {
     { id: 1, title: 'Current', favIconUrl: null, active: true },
     { id: 2, title: 'YouTube', favIconUrl: null, active: false },
     { id: 3, title: 'Away', favIconUrl: null, active: false, away: true },
+    { id: 4, title: 'Docs', favIconUrl: null, active: false },
   ],
 };
 
@@ -124,6 +125,52 @@ describe('hover card', () => {
     leave(card());
     await vi.advanceTimersByTimeAsync(300);
     expect(card()).toBeNull();
+  });
+
+  it('stays while the pointer crosses the dock edge on its way to the card', async () => {
+    await hoverFor(300);
+    hover(mount.querySelector('.hh-bar')); // the dock's padding, outside any chip
+    await vi.advanceTimersByTimeAsync(100);
+    hover(card());
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(card()).not.toBeNull();
+  });
+
+  it('waits long enough for an unhurried move across the gap to the card', async () => {
+    await hoverFor(300);
+    leave(tabEl(2));
+    await vi.advanceTimersByTimeAsync(300);
+    hover(card());
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(card()).not.toBeNull();
+  });
+
+  it('follows the pointer to the next chip once a card is showing', async () => {
+    chipAt(4, { left: 640, top: 100 });
+    await hoverFor(300);
+    leave(tabEl(2), tabEl(4));
+    await hoverFor(300, tabEl(4));
+    expect(card().textContent).toContain('Docs');
+    expect(request).toHaveBeenLastCalledWith({ type: 'preview', tabId: 4 });
+  });
+
+  it('follows to the next chip while the pointer keeps moving over its parts', async () => {
+    chipAt(4, { left: 640, top: 100 });
+    await hoverFor(300);
+    hover(tabEl(4));
+    await vi.advanceTimersByTimeAsync(100);
+    hover(tabEl(4).querySelector('.hh-title')); // still the same chip
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+    expect(card().textContent).toContain('Docs');
+  });
+
+  it('follows across the gap between chips too', async () => {
+    chipAt(4, { left: 640, top: 100 });
+    await hoverFor(300);
+    hover(mount.querySelector('.hh-tabs'));
+    await hoverFor(300, tabEl(4));
+    expect(card().textContent).toContain('Docs');
   });
 
   it('hides as soon as the chip is pressed (switching or dragging)', async () => {

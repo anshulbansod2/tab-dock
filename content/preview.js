@@ -7,19 +7,27 @@
   const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
   const { MSG } = ns.constants;
   const HOVER_MS = 250;
-  const LEAVE_MS = 150;
+  const LEAVE_MS = 150; // off the card: the user is done with it
+  const REACH_MS = 400; // from the chip to the card, across the dock edge and the gap
   const CARD = { width: 360, height: 270, gap: 8, edge: 8 };
   const PEEK = { width: 480, height: 320, titleBar: 28 };
 
   ns.bindPreview = ({ mount, ...deps }) => {
     /** @type {ReturnType<typeof setTimeout> | undefined} */
-    let timer;
+    let opening; // hover delay before a chip's card shows
+    /** @type {ReturnType<typeof setTimeout> | undefined} */
+    let closing; // grace before the card goes once the pointer leaves
     /** @type {Element | null} */
     let target = null; // the chip under the pointer, so moves within it don't restart the wait
-    const card = createCard({ ...deps, onEnter: () => clearTimeout(timer), onLeave: leaving });
+    const card = createCard({
+      ...deps,
+      onEnter: () => clearTimeout(closing),
+      onLeave: (event) => leaving(event, LEAVE_MS),
+    });
 
     function hide() {
-      clearTimeout(timer);
+      clearTimeout(opening);
+      clearTimeout(closing);
       target = null;
       card.close();
     }
@@ -27,25 +35,26 @@
     /** @param {Event} event */
     function onOver(event) {
       const chip = event.target instanceof Element ? event.target.closest('.hh-chip') : null;
-      if (chip === target) {
-        if (card.el()) clearTimeout(timer); // back from the card: cancel the pending hide
-        return; // still waiting on this chip: keep the timer running
-      }
-      clearTimeout(timer);
+      clearTimeout(closing); // still on the dock
+      if (chip === target) return; // moving within the chip: keep its wait running
+      clearTimeout(opening);
       if (!(chip instanceof HTMLElement) || !previewable(chip)) {
-        hide();
+        if (card.el())
+          closing = setTimeout(hide, REACH_MS); // maybe heading for the card
+        else hide();
         return;
       }
       target = chip;
-      timer = setTimeout(() => void card.open(chip, hide), HOVER_MS);
+      opening = setTimeout(() => void card.open(chip, hide), HOVER_MS);
     }
 
-    /** @param {MouseEvent} event */
-    function leaving(event) {
+    /** @param {MouseEvent} event @param {number} [delay] */
+    function leaving(event, delay = REACH_MS) {
       const to = event.relatedTarget;
       if (to instanceof Node && (mount.contains(to) || card.el()?.contains(to))) return;
-      clearTimeout(timer);
-      timer = setTimeout(hide, LEAVE_MS);
+      clearTimeout(opening);
+      clearTimeout(closing);
+      closing = setTimeout(hide, delay);
     }
 
     const listeners = /** @type {const} */ ([
