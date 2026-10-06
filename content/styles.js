@@ -74,7 +74,8 @@
 .hh-swatch[aria-current='true']::before {
   box-shadow: 0 0 0 2px var(--hh-solid), 0 0 0 3.5px var(--hh-swatch);
 }
-.hh-swatch[data-ungrouped]::before { background: transparent; border: 1.5px dashed var(--hh-muted); }
+.hh-swatch[data-ungrouped]::before { background: transparent; border: 2px dashed var(--hh-muted); }
+/* Inset: swatches sit edge to edge, so an outset ring would cover the neighbours. */
 .hh-swatch:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: -2px; }
 .hh-back {
   all: unset; flex: none; height: 24px; padding: 0 8px; border-radius: 7px; cursor: pointer;
@@ -85,7 +86,7 @@
 /* Browsing: the browsed group's last-used tab (a swatch click's target) has a faint underline. */
 .hh-chip[data-last]::after {
   content: ''; position: absolute; inset: auto 12px 3px; height: 2px; border-radius: 2px;
-  background: color-mix(in srgb, var(--hh-group) 55%, transparent); pointer-events: none;
+  background: color-mix(in srgb, var(--hh-group) 70%, transparent); pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .hh-swatch::before { transition: none; }
