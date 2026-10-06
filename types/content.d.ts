@@ -32,6 +32,14 @@ interface Logger {
 interface BarView {
   snapshot: Snapshot;
   collapsed: boolean;
+  /** Set while the group switcher shows another group. */
+  browse?: Browse | null;
+}
+
+interface Browse {
+  view: GroupView;
+  /** The dock's width when browsing began, kept so the swatches stay under the pointer. */
+  width: number;
 }
 
 interface BarHandlers {
@@ -85,6 +93,32 @@ interface ReorderCallbacks {
   /** Hide the drop targets. */
   onLower(): void;
   onDrop(message: ClientMessage): void;
+}
+
+interface BarViewState {
+  setSnapshot(next: Snapshot): void;
+  setCollapsed(next: boolean): void;
+  /** Shows another group (the switcher), or the dock's own again (null). */
+  setBrowse(next: Browse | null): void;
+  browsing(): Browse | null;
+  isCollapsed(): boolean;
+  /** The snapshot as shown: while browsing, with the browsed group and its tabs. */
+  current(): Snapshot | null;
+  /** The snapshot as received: the dock's own group. */
+  own(): Snapshot | null;
+  hold(next: boolean): void;
+  dispose(): void;
+}
+
+interface SwitcherDeps {
+  mount: HTMLElement;
+  /** The dock and its layers: leaving all of them goes back to the dock's own group. */
+  areas: HTMLElement[];
+  view: BarViewState;
+  request(msg: ClientMessage): Promise<unknown>;
+  send(msg: ClientMessage): void;
+  doc: Document;
+  leaveMs?: number;
 }
 
 interface Connection {
@@ -176,6 +210,12 @@ interface TabDockNamespace {
     win: Window;
     send(message: ClientMessage): void;
   }): GroupMenu;
+  createView(
+    mount: HTMLElement,
+    requestFrame?: (callback: FrameRequestCallback) => number,
+    cancelFrame?: (handle: number) => void,
+  ): BarViewState;
+  bindSwitcher(deps: SwitcherDeps): { refresh(): void; dispose(): void };
   mountBar(options: MountOptions): MountedBar | null;
 }
 

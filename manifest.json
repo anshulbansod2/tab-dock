@@ -27,6 +27,8 @@
         "content/menu.js",
         "content/dropzone.js",
         "content/preview.js",
+        "content/view.js",
+        "content/switcher.js",
         "content/bar.js",
         "content/main.js"
       ]

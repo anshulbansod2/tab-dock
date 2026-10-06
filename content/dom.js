@@ -2,6 +2,7 @@
 // Element builders. Every piece of tab data goes through textContent/attributes, never HTML.
 (() => {
   const ns = (globalThis.TabDock ??= /** @type {TabDockNamespace} */ ({}));
+  const UNGROUPED_ID = -1;
 
   /**
    * @template {keyof HTMLElementTagNameMap} K
@@ -74,11 +75,12 @@
   }
 
   /**
-   * @param {BarTab} tab
+   * @param {BarTab & { last?: boolean }} tab - `last`: where a click on its group's swatch goes
    * @param {boolean} focusable
    */
   function chip(tab, focusable) {
     const item = el('li', 'hh-chip');
+    if (tab.last) item.dataset.last = '';
     // A native button: Enter/Space activate it and its text (the full title) is its name.
     const tabEl = el('button', 'hh-tab');
     tabEl.type = 'button';
@@ -99,7 +101,7 @@
   /**
    * A toolbar of tab buttons with one Tab stop (roving tabindex); not a tablist, as there are
    * no tab panels.
-   * @param {BarTab[]} tabs
+   * @param {(BarTab & { last?: boolean })[]} tabs
    * @param {string} label
    */
   function tabList(tabs, label) {
@@ -131,16 +133,66 @@
     return node;
   }
 
-  /** @param {BarView} view */
-  function buildBar({ snapshot }) {
-    const label = ns.groupLabel(snapshot.group);
-    const bar = el('div', 'hh-bar');
-    bar.style.setProperty('--hh-group', ns.groupColor(snapshot.group));
-    bar.append(
-      groupLabel(label),
-      tabList(snapshot.tabs, label),
-      button('hh-new', 'plus', `New tab in ${label}`, 'new'),
+  /**
+   * One swatch per group in strip order, then the ungrouped tabs: a toolbar with one Tab stop,
+   * on the group shown. None when there is nowhere else to go.
+   * @param {Snapshot} snapshot
+   * @param {number} shownId - the group the dock shows (-1: ungrouped)
+   */
+  function switcher(snapshot, shownId) {
+    const own = snapshot.group?.id ?? UNGROUPED_ID;
+    /** @type {(BarGroup | null)[]} */
+    const entries = [...(snapshot.groups ?? [])];
+    if (snapshot.hasUngrouped || own === UNGROUPED_ID) entries.push(null);
+    if (entries.length < 2) return null;
+    const rail = el('div', 'hh-groups');
+    rail.setAttribute('role', 'toolbar');
+    rail.setAttribute('aria-label', 'Tab groups');
+    rail.append(
+      ...entries.map((group) => {
+        const id = group?.id ?? UNGROUPED_ID;
+        const swatch = el('button', 'hh-swatch');
+        swatch.type = 'button';
+        swatch.dataset.action = 'group';
+        swatch.dataset.groupId = String(id);
+        swatch.style.setProperty('--hh-swatch', ns.groupColor(group));
+        const name = ns.groupLabel(group);
+        swatch.setAttribute('aria-label', id === own ? `${name} (your group)` : name);
+        if (id === own) swatch.setAttribute('aria-current', 'true');
+        if (id === shownId) swatch.dataset.shown = '';
+        if (!group) swatch.dataset.ungrouped = '';
+        swatch.tabIndex = id === shownId ? 0 : -1;
+        return swatch;
+      }),
     );
+    return rail;
+  }
+
+  /**
+   * The dock for its own group or, while the switcher browses another, for that one at the
+   * width it had (so nothing moves under the pointer).
+   * @param {BarView} view
+   */
+  function buildBar({ snapshot, browse }) {
+    const shown = browse?.view ?? { group: snapshot.group, tabs: snapshot.tabs, lastId: null };
+    const label = ns.groupLabel(shown.group);
+    const bar = el('div', 'hh-bar');
+    bar.style.setProperty('--hh-group', ns.groupColor(shown.group));
+    const rail = switcher(snapshot, shown.group?.id ?? UNGROUPED_ID);
+    if (rail) bar.append(rail);
+    bar.append(groupLabel(label));
+    const tabs = shown.tabs.map((tab) => ({ ...tab, last: tab.id === shown.lastId }));
+    if (browse) {
+      bar.dataset.browsing = '';
+      bar.style.width = `${browse.width}px`;
+      const back = el('button', 'hh-back', 'Back');
+      back.type = 'button';
+      back.dataset.action = 'back';
+      back.title = 'Show your group again (Esc)';
+      bar.append(back, tabList(tabs, label));
+    } else {
+      bar.append(tabList(tabs, label), button('hh-new', 'plus', `New tab in ${label}`, 'new'));
+    }
     return bar;
   }
 

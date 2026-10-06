@@ -16,6 +16,8 @@ const ORDER = [
   'menu',
   'dropzone',
   'preview',
+  'view',
+  'switcher',
   'bar',
 ];
 const KEY = 'tabDock.collapsed';

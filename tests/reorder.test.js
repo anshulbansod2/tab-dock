@@ -88,6 +88,14 @@ describe('dragging a tab chip', () => {
     expect(order()).toEqual([2, 3, 1, 4]); // shown at once, before Chrome confirms
   });
 
+  it("leaves another group's tabs in place while the switcher shows them", () => {
+    mount.querySelector('.hh-bar').dataset.browsing = '';
+    drag(1, 260);
+    expect(callbacks.onMove).not.toHaveBeenCalled();
+    expect(callbacks.onDragStart).not.toHaveBeenCalled();
+    expect(clicks).toHaveBeenCalledOnce(); // a plain click still opens the tab
+  });
+
   it('moves leftwards too', () => {
     drag(4, 40);
     expect(callbacks.onMove).toHaveBeenCalledWith(4, 0);
