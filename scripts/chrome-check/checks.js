@@ -1,5 +1,6 @@
 // The checks: each opens a live window from a hover card and measures what Chrome really did.
 import { sleep } from './cdp.js';
+import { switcherCheck } from './switcher.js';
 
 /** @typedef {Awaited<ReturnType<typeof import('./lab.js').openLab>>} Lab */
 /** @typedef {{ status: 'PASS' | 'FAIL' | 'SKIP', detail: string }} Outcome */
@@ -53,7 +54,13 @@ async function hoverChip(lab, page) {
     'one',
     `[...${lab.root}.querySelectorAll('.hh-chip')].map((c) => { const r = c.getBoundingClientRect(); return { title: c.textContent.trim(), x: r.x + r.width / 2, y: r.y + r.height / 2 }; }).find((c) => c.title === 'Page ${page}')`,
   );
-  if (!chip) throw new Error(`no chip for Page ${page}`);
+  if (!chip) {
+    const shown = await lab.inDock(
+      'one',
+      `(() => { const r = ${lab.root}; return r.querySelector('.hh-label-text')?.textContent + ': ' + [...r.querySelectorAll('.hh-tab')].map((t) => t.textContent.trim()).join(', ') + (r.querySelector('[data-browsing]') ? ' (browsing)' : ''); })()`,
+    );
+    throw new Error(`no chip for Page ${page}; the dock shows ${shown}`);
+  }
   await lab.mouse('one', 'mouseMoved', 5, 5);
   await sleep(300);
   await lab.mouse('one', 'mouseMoved', chip.x, chip.y);
@@ -191,6 +198,7 @@ export const CHECKS = [
       return comesBack(lab, acts[i]);
     },
   ]),
+  ['pointing along the group swatches holds them still, and a click switches group', switcherCheck],
   [
     'side panel open',
     async () => ({

@@ -46,7 +46,7 @@
     const layer = doc.createElement('div'); // menus and drop targets, outside the re-rendered tree
     layer.className = 'hh-layer';
     shadow.append(mount, layer);
-    const view = createView(mount);
+    const view = ns.createView(mount);
     /** @type {Pick<Connection, 'send' | 'request'>} */
     const port = { send: (m) => connection.send(m), request: (m) => connection.request(m) };
     const win = doc.defaultView ?? window;
@@ -55,17 +55,17 @@
     const moves = bindTabMoves({ mount, layer, win, view, ...port });
     const guard = guardHost(host, doc, { runtime, onStale: () => unmount() });
     const unmount = () => {
-      guard.dispose();
-      moves.dispose();
-      drag.dispose();
-      view.dispose();
+      for (const part of [guard, moves, drag, view]) part.dispose();
       connection.stop();
       host.remove();
     };
     const connection = ns.createConnection({
       runtime,
       doc,
-      onSnapshot: view.setSnapshot,
+      onSnapshot: (next) => {
+        view.setSnapshot(next);
+        moves.refresh();
+      },
       onOrphaned: unmount,
     });
     ns.bindEvents(mount, {
@@ -187,21 +187,21 @@
    * a group target, and the hover card that opens a tab in a mini window. The card has a
    * layer of its own: the menu and drop targets replace their layer's children.
    * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window,
-   *   view: ReturnType<typeof createView>, send: (message: ClientMessage) => void,
+   *   view: BarViewState, send: (message: ClientMessage) => void,
    *   request: Connection['request'] }} deps
    */
   function bindTabMoves({ mount, layer, win, view, send, request }) {
-    const cards = layer.ownerDocument.createElement('div');
-    cards.className = 'hh-layer';
-    layer.after(cards);
-    const preview = ns.bindPreview({
-      mount,
-      layer: cards,
-      win,
-      request,
-      onPeek: (tabId, measures) => send({ type: MSG.PEEK, tabId, ...measures }),
-    });
+    const { cards, preview } = bindCards({ mount, layer, win, request, send });
     const fresh = ns.keepPreviewFresh({ doc: layer.ownerDocument, send });
+    const areas = [mount, layer, cards]; // leaving all of them ends browsing another group
+    const switcher = ns.bindSwitcher({
+      mount,
+      areas,
+      view,
+      request,
+      send,
+      doc: cards.ownerDocument,
+    });
     const menu = ns.createGroupMenu({ layer, win, send });
     const drop = ns.createGroupDrop({ layer });
     /** @param {number} tabId @param {number} toIndex */
@@ -213,20 +213,14 @@
         view.hold(true);
       },
       onDragEnd: () => view.hold(false),
-      onLift: (tabId) => {
-        const snapshot = view.current();
-        const dock = mount.querySelector('.hh-bar')?.getBoundingClientRect();
-        const chip = mount.querySelector(`.hh-tab[data-tab-id="${tabId}"]`)?.closest('.hh-chip');
-        const ghost = chip ? /** @type {HTMLElement} */ (chip.cloneNode(true)) : undefined;
-        ghost?.classList.remove('hh-chip--dragging', 'hh-chip--lifted');
-        if (snapshot && dock) drop.show({ snapshot, tabId, dock, ghost });
-      },
+      onLift: (tabId) => showDropTargets({ mount, view, drop, tabId }),
       onPick: drop.pick,
       onLower: drop.hide,
       onDrop: send,
     });
     return {
       onMove,
+      refresh: switcher.refresh,
       /** @type {BarHandlers['onMenu']} */
       onMenu(tabId, point, tab) {
         preview.hide();
@@ -234,6 +228,7 @@
         if (snapshot) menu.open({ tabId, point, snapshot, returnFocus: tab });
       },
       dispose() {
+        switcher.dispose();
         preview.dispose();
         fresh.dispose();
         reorder.dispose();
@@ -244,63 +239,36 @@
   }
 
   /**
-   * Holds the latest snapshot and collapsed flag; paints only once both are known so the bar
-   * never flashes in the wrong state. Paints are coalesced into the next animation frame, so a
-   * burst of snapshots or collapse changes costs one render with the latest data. While held
-   * (a chip is being dragged) nothing paints; the latest data paints on release.
-   * @param {HTMLElement} mount
-   * @param {(callback: FrameRequestCallback) => number} [requestFrame]
-   * @param {(handle: number) => void} [cancelFrame]
+   * The hover card, in a layer of its own (the menu and drop targets replace their layer's
+   * children), after the menu layer so it paints above it.
+   * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window,
+   *   send: (message: ClientMessage) => void, request: Connection['request'] }} deps
    */
-  function createView(
-    mount,
-    requestFrame = requestAnimationFrame,
-    cancelFrame = cancelAnimationFrame,
-  ) {
-    /** @type {Snapshot | null} */
-    let snapshot = null;
-    /** @type {boolean | null} */
-    let collapsed = null;
-    /** @type {number | null} */
-    let frame = null;
-    let held = false;
-    let stale = false;
-    const paint = () => {
-      frame = null;
-      if (held) {
-        stale = true;
-        return;
-      }
-      stale = false;
-      if (snapshot && collapsed !== null) ns.render(mount, { snapshot, collapsed });
-    };
-    const schedule = () => {
-      frame ??= requestFrame(paint);
-    };
-    const cancel = () => {
-      if (frame !== null) cancelFrame(frame);
-      frame = null;
-    };
-    return {
-      /** @param {Snapshot} next */
-      setSnapshot(next) {
-        snapshot = next;
-        schedule();
-      },
-      /** @param {boolean} next */
-      setCollapsed(next) {
-        collapsed = next;
-        schedule();
-      },
-      isCollapsed: () => collapsed === true,
-      current: () => snapshot,
-      /** @param {boolean} next */
-      hold(next) {
-        held = next;
-        if (!held && stale) schedule();
-      },
-      dispose: cancel,
-    };
+  function bindCards({ mount, layer, win, request, send }) {
+    const cards = layer.ownerDocument.createElement('div');
+    cards.className = 'hh-layer';
+    layer.after(cards);
+    const preview = ns.bindPreview({
+      mount,
+      layer: cards,
+      win,
+      request,
+      onPeek: (tabId, measures) => send({ type: MSG.PEEK, tabId, ...measures }),
+    });
+    return { cards, preview };
+  }
+
+  /**
+   * A chip pulled above the dock: the group targets, with a copy of the chip under the pointer.
+   * @param {{ mount: HTMLElement, view: BarViewState, drop: GroupDrop, tabId: number }} deps
+   */
+  function showDropTargets({ mount, view, drop, tabId }) {
+    const snapshot = view.current();
+    const dock = mount.querySelector('.hh-bar')?.getBoundingClientRect();
+    const chip = mount.querySelector(`.hh-tab[data-tab-id="${tabId}"]`)?.closest('.hh-chip');
+    const ghost = chip ? /** @type {HTMLElement} */ (chip.cloneNode(true)) : undefined;
+    ghost?.classList.remove('hh-chip--dragging', 'hh-chip--lifted');
+    if (snapshot && dock) drop.show({ snapshot, tabId, dock, ghost });
   }
 
   /**

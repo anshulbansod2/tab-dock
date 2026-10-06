@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadContent } from './helpers/content.js';
 
 let ns;
@@ -282,5 +282,84 @@ describe('render (peeking)', () => {
   it('says "Ungrouped" for a peeked tab with no group, even when collapsed', () => {
     ns.render(mount, { snapshot: { ...grouped, peek: { home: null } }, collapsed: true });
     expect(mount.querySelector('[data-action="return"]').textContent).toBe('Return to Ungrouped');
+  });
+});
+
+describe('render (group switcher)', () => {
+  const work = { id: 10, title: 'Research', color: 'blue' };
+  const read = { id: 20, title: 'Reading', color: 'orange' };
+  const withGroups = { ...grouped, groups: [work, read], hasUngrouped: true };
+  const browse = {
+    view: { group: read, tabs: [tab(7), tab(8), tab(9)], lastId: 8 },
+    width: 612,
+  };
+  const swatches = () => [...mount.querySelectorAll('.hh-swatch')];
+
+  it('shows a swatch per group, then one for the ungrouped tabs, marking your own', () => {
+    ns.render(mount, { snapshot: withGroups, collapsed: false });
+    expect(swatches().map((s) => s.dataset.groupId)).toEqual(['10', '20', '-1']);
+    expect(swatches().map((s) => s.getAttribute('aria-label'))).toEqual([
+      'Research (your group)',
+      'Reading',
+      'Ungrouped',
+    ]);
+    expect(swatches()[0].getAttribute('aria-current')).toBe('true');
+    expect(swatches().map((s) => s.tabIndex)).toEqual([0, -1, -1]);
+    expect(mount.querySelector('.hh-groups').getAttribute('role')).toBe('toolbar');
+  });
+
+  it('has no switcher when there is nowhere else to go', () => {
+    ns.render(mount, { snapshot: { ...grouped, groups: [work] }, collapsed: false });
+    expect(mount.querySelector('.hh-groups')).toBeNull();
+  });
+
+  it("shows the browsed group's name, colour and tabs at the dock's old width", () => {
+    ns.render(mount, { snapshot: withGroups, collapsed: false, browse });
+    const bar = mount.querySelector('.hh-bar');
+    expect(bar.hasAttribute('data-browsing')).toBe(true);
+    expect(bar.style.width).toBe('612px');
+    expect(bar.style.getPropertyValue('--hh-group')).toBe('#fa903e');
+    expect(mount.querySelector('.hh-label-text').textContent).toBe('Reading');
+    expect(tabsIn().map((t) => t.textContent)).toEqual(['Tab 7', 'Tab 8', 'Tab 9']);
+    expect(mount.querySelector('[data-last]').querySelector('.hh-tab').dataset.tabId).toBe('8');
+    expect(mount.querySelector('[data-action="back"]').textContent).toBe('Back');
+    expect(mount.querySelector('[data-action="new"]')).toBeNull();
+    expect(swatches()[1].hasAttribute('data-shown')).toBe(true);
+    expect(swatches().map((s) => s.tabIndex)).toEqual([-1, 0, -1]);
+  });
+
+  it('keeps the swatch elements across renders, so one under the pointer still takes the click', () => {
+    ns.render(mount, { snapshot: withGroups, collapsed: false });
+    const before = swatches();
+    ns.render(mount, { snapshot: withGroups, collapsed: false, browse });
+    expect(swatches()).toEqual(before);
+    expect(swatches().every((s, i) => s === before[i])).toBe(true);
+    expect(before[1].hasAttribute('data-shown')).toBe(true);
+    expect(before[0].hasAttribute('data-shown')).toBe(false);
+  });
+
+  it('slides the tabs in from the side of the newly shown group, and only then', () => {
+    const animate = vi.fn();
+    HTMLElement.prototype.animate = animate;
+    try {
+      ns.render(mount, { snapshot: withGroups, collapsed: false });
+      ns.render(mount, { snapshot: withGroups, collapsed: false, browse });
+      expect(animate).toHaveBeenCalledOnce();
+      expect(animate.mock.contexts[0]).toBe(mount.querySelector('.hh-list'));
+      expect(animate.mock.calls[0][0][0].transform).toBe('translateX(10px)'); // from the right
+      ns.render(mount, { snapshot: withGroups, collapsed: false, browse }); // same group again
+      ns.render(mount, { snapshot: withGroups, collapsed: false });
+      expect(animate).toHaveBeenCalledTimes(2);
+      expect(animate.mock.calls[1][0][0].transform).toBe('translateX(-10px)');
+    } finally {
+      delete HTMLElement.prototype.animate;
+    }
+  });
+
+  it('keeps keyboard focus on the same swatch', () => {
+    ns.render(mount, { snapshot: withGroups, collapsed: false });
+    swatches()[1].focus();
+    ns.render(mount, { snapshot: withGroups, collapsed: false, browse });
+    expect(shadow.activeElement).toBe(swatches()[1]);
   });
 });

@@ -104,7 +104,7 @@
     const tab = closest(event, '.hh-tab');
     if (!(tab instanceof HTMLElement)) return;
     if (event.altKey && event.shiftKey) {
-      moveTab(event, tab, h);
+      if (!tab.closest('[data-browsing]')) moveTab(event, tab, h); // not another group's tabs
       return;
     }
     if (isMenuKey(event)) {

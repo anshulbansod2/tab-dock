@@ -12,6 +12,8 @@ export function parseClientMessage(raw) {
   if (type === MSG.NEW || type === MSG.HELLO || type === MSG.RETURN || type === MSG.SEEN)
     return { type };
   if (type === MSG.PREVIEW && isTabId(tabId)) return { type, tabId };
+  if (type === MSG.GROUP && (isTabId(groupId) || groupId === UNGROUPED_ID))
+    return { type, groupId };
   if (type === MSG.PEEK && isTabId(tabId)) return parsePeek(tabId, raw);
   if ((type === MSG.ACTIVATE || type === MSG.CLOSE) && isTabId(tabId)) return { type, tabId };
   if (type === MSG.MOVE && isTabId(tabId) && isTabId(toIndex)) return { type, tabId, toIndex };

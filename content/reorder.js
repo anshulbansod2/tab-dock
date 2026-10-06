@@ -107,6 +107,8 @@
     const chip = tab?.closest('.hh-chip');
     if (!(tab instanceof HTMLElement) || !(chip instanceof HTMLElement) || event.button !== 0)
       return null;
+    // Positions are in the dock's own group; another group's tabs, shown by the switcher, stay.
+    if (chip.closest('[data-browsing]')) return null;
     const chips = /** @type {HTMLElement[]} */ ([...mount.querySelectorAll('.hh-chip')]);
     if (chips.length < 2) return null;
     const from = chips.indexOf(chip);

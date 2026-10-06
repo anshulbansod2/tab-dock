@@ -57,6 +57,40 @@
   width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--hh-group);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--hh-group) 24%, transparent);
 }
+/* Group switcher: a swatch per group, always laid out (nothing slides under the pointer),
+   quiet until the pointer is on the dock. */
+.hh-groups { display: flex; align-items: center; flex: none; height: 30px; margin-right: 2px; }
+.hh-swatch {
+  all: unset; box-sizing: border-box; display: grid; place-items: center; flex: none;
+  width: 18px; height: 30px; border-radius: 8px; cursor: pointer;
+}
+.hh-swatch::before {
+  content: ''; box-sizing: border-box; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--hh-swatch); opacity: 0.45;
+  transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 140ms;
+}
+.hh-bar:hover .hh-swatch::before, .hh-groups:focus-within .hh-swatch::before { opacity: 0.8; }
+.hh-swatch:hover::before, .hh-swatch[data-shown]::before { opacity: 1; transform: scale(1.3); }
+.hh-swatch[aria-current='true']::before {
+  box-shadow: 0 0 0 2px var(--hh-solid), 0 0 0 3.5px var(--hh-swatch);
+}
+.hh-swatch[data-ungrouped]::before { background: transparent; border: 2px dashed var(--hh-muted); }
+/* Inset: swatches sit edge to edge, so an outset ring would cover the neighbours. */
+.hh-swatch:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: -2px; }
+.hh-back {
+  all: unset; flex: none; height: 24px; padding: 0 8px; border-radius: 7px; cursor: pointer;
+  color: var(--hh-muted); font-weight: 500; transition: background-color 120ms;
+}
+.hh-back:hover { background: var(--hh-chip-hover); color: var(--hh-fg); }
+.hh-back:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 1px; }
+/* Browsing: the browsed group's last-used tab (a swatch click's target) has a faint underline. */
+.hh-chip[data-last]::after {
+  content: ''; position: absolute; inset: auto 12px 3px; height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--hh-group) 70%, transparent); pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hh-swatch::before { transition: none; }
+}
 /* Edges fade (a mask, not an overlay) so overflowing tabs read as scrollable. */
 .hh-tabs {
   flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none;

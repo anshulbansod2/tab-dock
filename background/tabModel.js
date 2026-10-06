@@ -26,9 +26,30 @@ export function buildSnapshot({ tabs, groups, tabId, home }) {
     group: describeGroup(groups, groupId),
     tabs: membersOf({ tabs, groupId, tabId }),
     groups: groupsInOrder(tabs, groups),
+    hasUngrouped: tabs.some((tab) => effectiveGroupId(tab) === UNGROUPED_ID),
   };
   if (home !== undefined) snapshot.peek = { home: home && describeGroup([home], home.id) };
   return snapshot;
+}
+
+/**
+ * Another group's tabs, for a bar browsing it from the group switcher: none is the bar's own,
+ * and `lastId` is the one Chrome says was used last (where a click on its swatch goes).
+ * @param {object} input
+ * @param {chrome.tabs.Tab[]} input.tabs - Every tab in the window.
+ * @param {chrome.tabGroups.TabGroup[]} input.groups
+ * @param {number} input.groupId - -1 for the ungrouped tabs.
+ * @returns {GroupView | null} null when the group has no tabs in the window
+ */
+export function buildGroupView({ tabs, groups, groupId }) {
+  const members = tabs.filter((tab) => tab.id !== undefined && effectiveGroupId(tab) === groupId);
+  if (members.length === 0) return null;
+  const last = members.reduce((a, b) => ((b.lastAccessed ?? 0) > (a.lastAccessed ?? 0) ? b : a));
+  return {
+    group: describeGroup(groups, groupId),
+    tabs: membersOf({ tabs, groupId, tabId: UNGROUPED_ID }),
+    lastId: /** @type {number} */ (last.id),
+  };
 }
 
 /**

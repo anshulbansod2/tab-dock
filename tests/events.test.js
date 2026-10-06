@@ -217,6 +217,12 @@ describe('keyboard', () => {
     expect(handlers.onMove).toHaveBeenCalledTimes(2);
   });
 
+  it("does not move another group's tab while the switcher shows it", () => {
+    mount.querySelector('.hh-bar').dataset.browsing = '';
+    expect(key(tab(2), 'ArrowLeft', { altKey: true, shiftKey: true }).defaultPrevented).toBe(false);
+    expect(handlers.onMove).not.toHaveBeenCalled();
+  });
+
   it.each(['keydown', 'keyup', 'keypress'])(
     'keeps %s inside the bar away from page shortcuts',
     (type) => {

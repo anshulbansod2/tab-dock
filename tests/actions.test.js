@@ -28,6 +28,27 @@ describe('handleAction', () => {
     expect(api.tabs.update).toHaveBeenCalledWith(2, { active: true });
   });
 
+  it('collapses the group left behind when switching to another group', async () => {
+    api.state.tabs.push(makeTab({ id: 6, index: 4, groupId: 20 }));
+    await handleAction({ type: 'activate', tabId: 6 }, client, api);
+    expect(api.tabs.update).toHaveBeenCalledWith(6, { active: true });
+    expect(api.tabGroups.update).toHaveBeenCalledWith(10, { collapsed: true });
+    expect(api.tabs.update.mock.invocationCallOrder[0]).toBeLessThan(
+      api.tabGroups.update.mock.invocationCallOrder[0],
+    ); // Chrome won't collapse the group of the active tab
+  });
+
+  it('collapses the group left behind when switching to an ungrouped tab', async () => {
+    await handleAction({ type: 'activate', tabId: 4 }, client, api);
+    expect(api.tabGroups.update).toHaveBeenCalledWith(10, { collapsed: true });
+  });
+
+  it('collapses nothing within a group, or when leaving the ungrouped tabs', async () => {
+    await handleAction({ type: 'activate', tabId: 2 }, client, api);
+    await handleAction({ type: 'activate', tabId: 1 }, { tabId: 4, windowId: 1 }, api);
+    expect(api.tabGroups.update).not.toHaveBeenCalled();
+  });
+
   it('closes a tab in the same window', async () => {
     await handleAction({ type: 'close', tabId: 2 }, client, api);
     expect(api.tabs.remove).toHaveBeenCalledWith(2);

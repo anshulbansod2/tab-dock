@@ -52,22 +52,31 @@ export function registerBackground(api, { shrink } = {}) {
  * @returns {boolean} true when sendResponse will be called asynchronously
  */
 function onClientMessage(raw, sender, sendResponse, services) {
-  const { api, hub, peeks } = services;
+  const { api, peeks } = services;
   const client = identifySender(sender, api.runtime.id);
   const msg = client && parseClientMessage(raw);
   if (!client || !msg) {
     logger.warn('dropped invalid message');
     return false;
   }
-  if (msg.type === MSG.HELLO || msg.type === MSG.PREVIEW) {
-    const answer =
-      msg.type === MSG.HELLO ? hub.snapshotFor(client) : previewFor(msg.tabId, client, services);
-    reply(answer, sendResponse, msg.type);
+  if (msg.type === MSG.HELLO || msg.type === MSG.PREVIEW || msg.type === MSG.GROUP) {
+    reply(answerFor(msg, client, services), sendResponse, msg.type);
     return true; // keeps the channel open for the async sendResponse
   }
   if (msg.type === MSG.SEEN) services.previews.schedule(client.windowId);
   else void handleAction(msg, client, api, peeks);
   return false;
+}
+
+/**
+ * @param {Extract<ClientMessage, { type: 'hello' | 'preview' | 'group' }>} msg
+ * @param {ClientInfo} client
+ * @param {Services} services
+ */
+function answerFor(msg, client, services) {
+  if (msg.type === MSG.HELLO) return services.hub.snapshotFor(client);
+  if (msg.type === MSG.GROUP) return services.hub.groupFor(client, msg.groupId);
+  return previewFor(msg.tabId, client, services);
 }
 
 /**
