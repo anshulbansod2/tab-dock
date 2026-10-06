@@ -29,15 +29,15 @@ export async function openLab({ cdp, extensionId, origin }) {
   const sessions = new Map();
   /** @param {string} page @returns {Promise<string>} a session on that page's tab */
   const session = async (page) => {
-    if (!sessions.has(page)) {
-      const sid = await cdp.attach(
-        await targetOf(cdp, (t) => t.type === 'page' && t.url === url(page)),
-      );
+    // A restored tab (its window was closed) is a new target: attach again when it changes.
+    const targetId = await targetOf(cdp, (t) => t.type === 'page' && t.url === url(page));
+    if (sessions.get(page)?.targetId !== targetId) {
+      const sid = await cdp.attach(targetId);
       await cdp.send('Runtime.enable', {}, sid);
       await cdp.send('Page.enable', {}, sid);
-      sessions.set(page, sid);
+      sessions.set(page, { targetId, sid });
     }
-    return sessions.get(page);
+    return sessions.get(page).sid;
   };
   return { cdp, sw, main, url, session, ...dockHelpers(cdp, session) };
 }

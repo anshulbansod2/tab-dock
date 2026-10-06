@@ -21,7 +21,7 @@ const near = (/** @type {number} */ a, /** @type {number} */ b) => Math.abs(a - 
 /** @param {Lab} lab @param {string} page */
 const tabOf = (lab, page) =>
   lab.sw(
-    `chrome.tabs.query({ url: ${JSON.stringify(lab.url(page))} }).then(([t]) => t && { id: t.id, index: t.index, windowId: t.windowId })`,
+    `chrome.tabs.query({ url: ${JSON.stringify(lab.url(page))} }).then(([t]) => t && { id: t.id, index: t.index, windowId: t.windowId, groupId: t.groupId })`,
   );
 
 /** @param {Lab} lab */
@@ -43,18 +43,27 @@ async function cardWithin(lab, ms) {
   return false;
 }
 
-/** Hovers a chip, waits for its card and clicks it. @param {Lab} lab */
-async function openPeek(lab, page = PEEKED, { beforeClick = async () => {} } = {}) {
+/**
+ * Points at the chip, measured just now (a re-render after the last check can shift the
+ * chips), coming from a neutral spot: a pointer already resting on it would send no hover.
+ * @param {Lab} lab @param {string} page @returns {Promise<boolean>} whether its card showed
+ */
+async function hoverChip(lab, page) {
   const chip = await lab.inDock(
     'one',
     `[...${lab.root}.querySelectorAll('.hh-chip')].map((c) => { const r = c.getBoundingClientRect(); return { title: c.textContent.trim(), x: r.x + r.width / 2, y: r.y + r.height / 2 }; }).find((c) => c.title === 'Page ${page}')`,
   );
   if (!chip) throw new Error(`no chip for Page ${page}`);
-  // From a neutral spot: a pointer already resting on the chip would send no hover.
   await lab.mouse('one', 'mouseMoved', 5, 5);
-  await sleep(100);
+  await sleep(300);
   await lab.mouse('one', 'mouseMoved', chip.x, chip.y);
-  if (!(await cardWithin(lab, 3000))) throw new Error('no hover card within 3 s');
+  return cardWithin(lab, 3000);
+}
+
+/** Hovers a chip, waits for its card and clicks it. @param {Lab} lab */
+async function openPeek(lab, page = PEEKED, { beforeClick = async () => {} } = {}) {
+  if (!(await hoverChip(lab, page)) && !(await hoverChip(lab, page)))
+    throw new Error('no hover card within 3 s, twice');
   const shown = await lab.inDock('one', lab.rectOf('.hh-card'));
   await lab.mouse('one', 'mouseMoved', shown.x, shown.y); // resting on the card, as a user does
   await sleep(100);
@@ -90,6 +99,16 @@ async function dockOnScreen(lab) {
     top: top + dock.top * zoom,
     bottom: top + dock.bottom * zoom,
   };
+}
+
+/** Puts the test pages in one tab group (they stay grouped for the later checks). @param {Lab} lab */
+async function groupTabs(lab) {
+  await lab.sw(`chrome.tabs.query({ windowId: ${lab.main} })
+    .then((ts) => ts.filter((t) => t.url.startsWith('http') && t.groupId === -1).map((t) => t.id))
+    .then((ids) => ids.length && chrome.tabs.group({ tabIds: ids })
+      .then((g) => chrome.tabGroups.update(g, { title: 'Work', color: 'blue' })))
+    .then(() => 1)`);
+  await reload(lab);
 }
 
 /** Puts things back: the tab home, zoom 100 %, the dock at its default spot. @param {Lab} lab */
@@ -160,6 +179,18 @@ export const CHECKS = [
         await lab.sw(`chrome.windows.remove(${win.id}).then(() => 1)`);
       }),
   ],
+  ...['Return', 'using the main window again', 'closing the live window'].map((how, i) => [
+    `${how} puts a grouped tab back in its group`,
+    async (/** @type {Lab} */ lab) => {
+      await groupTabs(lab);
+      const acts = [
+        () => lab.inDock(PEEKED, `${lab.root}.querySelector('[data-action="return"]').click()`),
+        () => lab.sw(`chrome.windows.update(${lab.main}, { focused: true }).then(() => 1)`),
+        (win) => lab.sw(`chrome.windows.remove(${win.id}).then(() => 1)`),
+      ];
+      return comesBack(lab, acts[i]);
+    },
+  ]),
   [
     'side panel open',
     async () => ({
@@ -183,13 +214,21 @@ async function comesBack(lab, act) {
   const after = await tabOf(lab, PEEKED);
   const moves = await lab.sw('globalThis.__moves');
   const left = await popup(lab);
-  const ok = after?.windowId === lab.main && after.index === before.index && moves === 1 && !left;
+  const home = after?.windowId === lab.main && after.index === before.index;
+  // Exactly one trip home: an ungrouped tab moves once; a grouped one joins its group (a move
+  // into the window) and then takes its old spot. More would mean it was returned twice.
+  const expected = before.groupId === -1 ? 1 : 2;
+  const ok = home && after.groupId === before.groupId && moves === expected && !left;
+  const group =
+    before.groupId === -1
+      ? ''
+      : `, ${after?.groupId === before.groupId ? 'in' : 'NOT in'} its group`;
   const where = after
-    ? `window ${after.windowId === lab.main ? 'main' : after.windowId}, index ${after.index} (was ${before.index})`
+    ? `window ${after.windowId === lab.main ? 'main' : after.windowId}, index ${after.index} (was ${before.index})${group}`
     : 'tab gone';
   return {
     status: ok ? 'PASS' : 'FAIL',
-    detail: `${where}; moves back ${moves}; live window left ${Boolean(left)}`,
+    detail: `${where}; moves back ${moves} (expected ${expected}); live window left ${Boolean(left)}`,
   };
 }
 
