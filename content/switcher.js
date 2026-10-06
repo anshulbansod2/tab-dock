@@ -88,6 +88,19 @@
     };
   }
 
+  /** @param {Event} event */
+  const swatchOf = (event) =>
+    event.target instanceof Element ? event.target.closest('.hh-swatch') : null;
+  /** @param {Element} swatch */
+  const idOf = (swatch) => Number(swatch.getAttribute('data-group-id'));
+
+  /**
+   * Only a pointer that moves picks a group: Chrome also sends hover events when the page
+   * lays out afresh under a still pointer (a reload, a re-render), which must not switch it.
+   * @param {PointerEvent} event
+   */
+  const moved = (event) => event.movementX !== 0 || event.movementY !== 0;
+
   /**
    * Pointer, keyboard and page-visibility wiring.
    * @param {SwitcherDeps} deps
@@ -95,17 +108,15 @@
    * @returns {() => void} removes the listeners
    */
   function listen({ mount, areas, doc, leaveMs = LEAVE_MS }, browser) {
-    /** @param {Event} event */
-    const swatchOf = (event) =>
-      event.target instanceof Element ? event.target.closest('.hh-swatch') : null;
-    /** @param {Element} swatch */
-    const idOf = (swatch) => Number(swatch.getAttribute('data-group-id'));
     /** @type {Array<[EventTarget, string, (event: Event) => void]>} */
     const bindings = [
       [
         mount,
-        'pointerover',
-        (e) => swatchOf(e) && browser.show(idOf(/** @type {Element} */ (swatchOf(e)))),
+        'pointermove',
+        (e) => {
+          const swatch = swatchOf(e);
+          if (swatch && moved(/** @type {PointerEvent} */ (e))) browser.show(idOf(swatch));
+        },
       ],
       [mount, 'click', (e) => onClick(e)],
       [mount, 'keydown', (e) => onKey(/** @type {KeyboardEvent} */ (e))],

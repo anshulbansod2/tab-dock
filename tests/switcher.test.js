@@ -101,8 +101,12 @@ const actions = () =>
   runtime.sendMessage.mock.calls
     .map(([m]) => m)
     .filter((m) => !['hello', 'group'].includes(m.type));
-const point = (el, type = 'pointerover') =>
-  el.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+/** A real pointer moving onto (or along) the element; `still`: Chrome's hover after a layout. */
+function point(el, type = 'pointermove', { still = false } = {}) {
+  const event = new MouseEvent(type, { bubbles: true });
+  Object.defineProperty(event, 'movementX', { value: still ? 0 : 3 });
+  return el.dispatchEvent(event);
+}
 const key = (el, k) => el.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
 const mountEl = () => q('.hh-root').parentElement;
 
@@ -119,6 +123,14 @@ describe('group switcher', () => {
     expect(titles()).toEqual(['Five', 'Six']);
     expect(q('.hh-bar').style.width).toBe('640px');
     expect(actions()).toEqual([]); // looking changes nothing in Chrome
+  });
+
+  it('ignores hover events from a page that moved under a still pointer', async () => {
+    point(swatch(20), 'pointerover');
+    point(swatch(20), 'pointermove', { still: true });
+    await settle();
+    expect(label()).toBe('Work');
+    expect(runtime.sendMessage).not.toHaveBeenCalledWith({ type: 'group', groupId: 20 });
   });
 
   it('opens a tab of the browsed group when it is clicked', async () => {
