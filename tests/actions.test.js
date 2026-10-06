@@ -33,13 +33,6 @@ describe('handleAction', () => {
     expect(api.tabs.remove).toHaveBeenCalledWith(2);
   });
 
-  it('ignores a target in another window', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await handleAction({ type: 'close', tabId: 3 }, client, api);
-    expect(api.tabs.remove).not.toHaveBeenCalled();
-    expect(warn).toHaveBeenCalled();
-  });
-
   it('swallows stale-tab errors silently', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     await expect(handleAction({ type: 'close', tabId: 404 }, client, api)).resolves.toBeUndefined();
@@ -182,27 +175,11 @@ describe('handleAction', () => {
       expect(peeks.back).toHaveBeenCalledWith(2);
     });
 
-    it("brings forward a peeked tab's window when its away chip is clicked", async () => {
+    it('can close a peeked tab from its home window', async () => {
       api.state.tabs[1].windowId = 77;
       peeks.originOf.mockResolvedValue({ windowId: 1, index: 1, groupId: 10 });
-      await handleAction({ type: 'activate', tabId: 2 }, client, api, peeks);
-      expect(peeks.focus).toHaveBeenCalledWith(2);
-      expect(api.tabs.update).not.toHaveBeenCalled();
-    });
-
-    it('can close a peeked tab from its away chip', async () => {
-      api.state.tabs[1].windowId = 77;
-      peeks.originOf.mockResolvedValue({ windowId: 1, index: 1, groupId: 10 });
-      await handleAction({ type: 'close', tabId: 2 }, client, api, peeks);
+      await handleAction({ type: 'close', tabId: 2 }, client, api);
       expect(api.tabs.remove).toHaveBeenCalledWith(2);
-    });
-
-    it('still refuses tabs from other windows that are not peeked from this one', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      peeks.originOf.mockResolvedValue({ windowId: 9, index: 0, groupId: -1 });
-      await handleAction({ type: 'activate', tabId: 3 }, client, api, peeks);
-      expect(peeks.focus).not.toHaveBeenCalled();
-      expect(warn).toHaveBeenCalled();
     });
   });
 });

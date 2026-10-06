@@ -14,8 +14,6 @@ interface BarTab {
   favIconUrl: string | null;
   /** True only for the tab this bar is rendered in. */
   active: boolean;
-  /** Out in a mini window (peeked); clicking brings that window forward. */
-  away?: boolean;
 }
 
 interface Snapshot {
@@ -79,6 +77,5 @@ type Peeks = ReturnType<typeof import('../background/peek.js').createPeeks>;
 interface WindowState {
   tabs: chrome.tabs.Tab[];
   groups: chrome.tabGroups.TabGroup[];
-  away: { tab: chrome.tabs.Tab; origin: PeekOrigin }[];
   homes: Map<number, chrome.tabGroups.TabGroup | null>;
 }

@@ -43,7 +43,7 @@ export function createHub({
   async function snapshotFor(client) {
     lastSent.delete(client.tabId); // a (re)loaded bar knows nothing yet: never skip its next push
     const state = await windowState(api, client.windowId, peeks);
-    return favicons.inline(snapshotOf(state, client.tabId), withAway(state));
+    return favicons.inline(snapshotOf(state, client.tabId), state.tabs);
   }
 
   /**
@@ -100,8 +100,8 @@ export function createHub({
 }
 
 /**
- * The window's tabs and groups, plus its tabs peeked out into mini windows (`away`) and, for
- * tabs of this window that are themselves peeked, the group each returns to (`homes`).
+ * The window's tabs and groups, plus for tabs of this window that are themselves peeked,
+ * the group each returns to (`homes`).
  * @param {typeof chrome} api
  * @param {number} windowId
  * @param {Pick<Peeks, 'all'>} [peeks]
@@ -113,19 +113,13 @@ async function windowState(api, windowId, peeks) {
     api.tabGroups.query({ windowId }),
     peeks ? peeks.all() : new Map(),
   ]);
-  /** @type {WindowState['away']} */
-  const away = [];
-  /** @type {WindowState['homes']} */
   const homes = new Map();
   for (const [tabId, origin] of peeked) {
-    const here = tabs.some((tab) => tab.id === tabId);
-    if (here) homes.set(tabId, await groupOrNull(api, origin.groupId));
-    else if (origin.windowId === windowId) {
-      const tab = await api.tabs.get(tabId).catch(() => null);
-      if (tab) away.push({ tab, origin });
+    if (tabs.some((tab) => tab.id === tabId)) {
+      homes.set(tabId, await groupOrNull(api, origin.groupId));
     }
   }
-  return { tabs, groups, away, homes };
+  return { tabs, groups, homes };
 }
 
 /**
@@ -142,9 +136,6 @@ const snapshotOf = (state, tabId) => buildSnapshot({ ...state, tabId, home: home
 
 /** @param {WindowState} state @param {number} tabId */
 const homeOf = (state, tabId) => (state.homes.has(tabId) ? state.homes.get(tabId) : undefined);
-
-/** Every tab a snapshot may show, for favicon lookup. @param {WindowState} state */
-const withAway = (state) => [...state.tabs, ...state.away.map(({ tab }) => tab)];
 
 /**
  * @param {{ api: typeof chrome, lastSent: Map<number, string> }} deps
@@ -204,7 +195,7 @@ function planPushes({ state, lastSent, favicons }) {
     const key = JSON.stringify(built);
     if (key === lastSent.get(tab.id)) return [];
     const groupKey = built.group?.id ?? UNGROUPED_ID;
-    if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, withAway(state)));
+    if (!perGroup.has(groupKey)) perGroup.set(groupKey, favicons.inline(built, state.tabs));
     const shared = /** @type {Promise<Snapshot>} */ (perGroup.get(groupKey));
     return [{ tab, key, shared, peek: built.peek }];
   });

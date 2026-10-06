@@ -9,7 +9,7 @@ const PEEKS_KEY = 'peeks';
  * @returns {Promise<Record<string, PeekOrigin>>}
  */
 async function getPeeks(store) {
-  return (await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {};
+  return /** @type {Record<string, PeekOrigin>} */ ((await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {});
 }
 
 /**
@@ -39,6 +39,12 @@ async function doBack(api, store, tabId, origin) {
   if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
 }
 
+/**
+ * @param {typeof chrome} api
+ * @param {chrome.storage.StorageArea} store
+ * @param {Set<number>} inFlight
+ * @returns {(tabId: number) => Promise<void>}
+ */
 function makeBack(api, store, inFlight) {
   return async (tabId) => {
     if (inFlight.has(tabId)) return;
@@ -62,11 +68,19 @@ function makeBack(api, store, inFlight) {
 export function createPeeks({ api, store = api.storage.session }) {
   const inFlight = new Set();
   return {
+    /** @param {number} tabId @returns {Promise<PeekOrigin | null>} */
     originOf: (tabId) => getPeeks(store).then((p) => p[tabId] ?? null),
+    /** @param {number} tabId @param {PeekBounds} bounds */
     async open(tabId, bounds) {
       const tab = await api.tabs.get(tabId);
       const p = await getPeeks(store);
-      p[tabId] = { windowId: tab.windowId, index: tab.index, groupId: effectiveGroupId(tab), pinned: tab.pinned, url: tab.url };
+      p[tabId] = {
+        windowId: tab.windowId,
+        index: tab.index,
+        groupId: effectiveGroupId(tab),
+        pinned: tab.pinned,
+        url: tab.url,
+      };
       await savePeeks(store, p);
       try {
         await api.windows.create({ tabId, type: 'popup', ...bounds, focused: true });
@@ -78,9 +92,15 @@ export function createPeeks({ api, store = api.storage.session }) {
       }
     },
     back: makeBack(api, store, inFlight),
-    focus: async (tabId) => api.windows.update((await api.tabs.get(tabId)).windowId, { focused: true }),
-    all: () => getPeeks(store).then((p) => new Map(Object.entries(p).map(([id, o]) => [Number(id), o]))),
-    forget: async (tabId) => { const p = await getPeeks(store); delete p[tabId]; await savePeeks(store, p); },
+    /** @returns {Promise<Map<number, PeekOrigin>>} */
+    all: () =>
+      getPeeks(store).then((p) => new Map(Object.entries(p).map(([id, o]) => [Number(id), o]))),
+    /** @param {number} tabId */
+    forget: async (tabId) => {
+      const p = await getPeeks(store);
+      delete p[tabId];
+      await savePeeks(store, p);
+    },
   };
 }
 

@@ -53,21 +53,6 @@ describe('buildSnapshot', () => {
     ]);
   });
 
-  it('keeps a tab peeked into a mini window in its group, marked away, in its old spot', () => {
-    const tabs = [
-      makeTab({ id: 1, index: 0, groupId: 10 }),
-      makeTab({ id: 3, index: 1, groupId: 10 }),
-    ];
-    const peeked = makeTab({ id: 2, index: 0, windowId: 77 });
-    const away = [{ tab: peeked, origin: { windowId: 1, index: 1, groupId: 10 } }];
-    const snap = buildSnapshot({ tabs, groups, tabId: 1, away });
-    expect(snap.tabs.map((t) => [t.id, Boolean(t.away)])).toEqual([
-      [1, false],
-      [2, true],
-      [3, false],
-    ]);
-  });
-
   it("leaves a peeked tab out of other groups' bars", () => {
     const tabs = [makeTab({ id: 1, index: 0, groupId: 20 })];
     const away = [

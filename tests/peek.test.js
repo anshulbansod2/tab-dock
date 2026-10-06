@@ -27,7 +27,13 @@ describe('peeking a tab live', () => {
       ...BOUNDS,
       focused: true,
     });
-    expect(await peeks.originOf(2)).toEqual({ windowId: 1, index: 1, groupId: 10, pinned: false, url: "https://example.com/2" });
+    expect(await peeks.originOf(2)).toEqual({
+      windowId: 1,
+      index: 1,
+      groupId: 10,
+      pinned: false,
+      url: 'https://example.com/2',
+    });
   });
 
   it('puts it back where it was, in its group, and focuses that window', async () => {
@@ -71,17 +77,12 @@ describe('peeking a tab live', () => {
   it('lists peeked tabs and forgets closed ones', async () => {
     await peeks.open(2, BOUNDS);
     expect(await peeks.all()).toEqual(
-      new Map([[2, { windowId: 1, index: 1, groupId: 10, pinned: false, url: "https://example.com/2" }]]),
+      new Map([
+        [2, { windowId: 1, index: 1, groupId: 10, pinned: false, url: 'https://example.com/2' }],
+      ]),
     );
     await peeks.forget(2);
     expect(await peeks.all()).toEqual(new Map());
-  });
-
-  it('brings a peeked tab forward', async () => {
-    await peeks.open(2, BOUNDS);
-    api.state.tabs[1].windowId = 77;
-    await peeks.focus(2);
-    expect(api.windows.update).toHaveBeenCalledWith(77, { focused: true });
   });
 
   it('forgets the peek if its window cannot be made (and leaves the tab alone)', async () => {

@@ -10,7 +10,7 @@ const snapshot = {
   tabs: [
     { id: 1, title: 'Current', favIconUrl: null, active: true },
     { id: 2, title: 'YouTube', favIconUrl: null, active: false },
-    { id: 3, title: 'Away', favIconUrl: null, active: false, away: true },
+    { id: 3, title: 'Peeked', favIconUrl: null, active: false },
     { id: 4, title: 'Docs', favIconUrl: null, active: false },
   ],
 };
@@ -137,9 +137,8 @@ describe('hover card', () => {
     expect(card().querySelector('img')).toBeNull();
   });
 
-  it('shows nothing for the current tab or one already out in a mini window', async () => {
+  it('shows nothing for the current tab', async () => {
     await hoverFor(300, tabEl(1));
-    await hoverFor(300, tabEl(3));
     expect(card()).toBeNull();
     expect(request).not.toHaveBeenCalled();
   });
