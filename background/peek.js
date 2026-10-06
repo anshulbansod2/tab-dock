@@ -39,6 +39,19 @@ async function doBack(api, store, tabId, origin) {
   if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
 }
 
+function makeBack(api, store, inFlight) {
+  return async (tabId) => {
+    if (inFlight.has(tabId)) return;
+    inFlight.add(tabId);
+    try {
+      const origin = (await getPeeks(store))[tabId];
+      if (origin) await doBack(api, store, tabId, origin);
+    } finally {
+      inFlight.delete(tabId);
+    }
+  };
+}
+
 /**
  * Live peeks: a tab moved, as itself (page state, video, login intact), into a small popup
  * window where its hover card was, and later put back exactly where it came from. Where each
@@ -49,64 +62,25 @@ async function doBack(api, store, tabId, origin) {
 export function createPeeks({ api, store = api.storage.session }) {
   const inFlight = new Set();
   return {
-    /**
-     * @param {number} tabId
-     * @returns {Promise<PeekOrigin | null>}
-     */
-    async originOf(tabId) {
-      return (await getPeeks(store))[tabId] ?? null;
-    },
-    /**
-     * @param {number} tabId
-     * @param {PeekBounds} bounds - screen pixels
-     */
+    originOf: (tabId) => getPeeks(store).then((p) => p[tabId] ?? null),
     async open(tabId, bounds) {
       const tab = await api.tabs.get(tabId);
-      const peeks = await getPeeks(store);
-      peeks[tabId] = {
-        windowId: tab.windowId,
-        index: tab.index,
-        groupId: effectiveGroupId(tab),
-        pinned: tab.pinned,
-        url: tab.url,
-      };
-      await savePeeks(store, peeks);
+      const p = await getPeeks(store);
+      p[tabId] = { windowId: tab.windowId, index: tab.index, groupId: effectiveGroupId(tab), pinned: tab.pinned, url: tab.url };
+      await savePeeks(store, p);
       try {
         await api.windows.create({ tabId, type: 'popup', ...bounds, focused: true });
       } catch (err) {
-        const p = await getPeeks(store);
-        delete p[tabId];
-        await savePeeks(store, p);
+        const ps = await getPeeks(store);
+        delete ps[tabId];
+        await savePeeks(store, ps);
         throw err;
       }
     },
-    /** @param {number} tabId */
-    async back(tabId) {
-      if (inFlight.has(tabId)) return;
-      inFlight.add(tabId);
-      try {
-        const origin = await this.originOf(tabId);
-        if (origin) await doBack(api, store, tabId, origin);
-      } finally {
-        inFlight.delete(tabId);
-      }
-    },
-    /** @param {number} tabId - brings a peeked tab's window forward */
-    async focus(tabId) {
-      const tab = await api.tabs.get(tabId);
-      await api.windows.update(tab.windowId, { focused: true });
-    },
-    /** @returns {Promise<Map<number, PeekOrigin>>} */
-    async all() {
-      const p = await getPeeks(store);
-      return new Map(Object.entries(p).map(([id, o]) => [Number(id), o]));
-    },
-    /** @param {number} tabId */
-    async forget(tabId) {
-      const p = await getPeeks(store);
-      delete p[tabId];
-      await savePeeks(store, p);
-    },
+    back: makeBack(api, store, inFlight),
+    focus: async (tabId) => api.windows.update((await api.tabs.get(tabId)).windowId, { focused: true }),
+    all: () => getPeeks(store).then((p) => new Map(Object.entries(p).map(([id, o]) => [Number(id), o]))),
+    forget: async (tabId) => { const p = await getPeeks(store); delete p[tabId]; await savePeeks(store, p); },
   };
 }
 
