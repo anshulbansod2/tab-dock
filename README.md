@@ -56,9 +56,12 @@ listens in the capture phase on `window` can still see them; that is a browser l
 
 ### Permissions
 
-`tabs`, `tabGroups`, `storage`; `scripting` + host access to add the bar to tabs that were
-open before install; `favicon` to read Chrome's favicon cache. Host access matches the content
-script's sites, so it adds no install warning.
+`tabs`, `tabGroups`, `storage`, `sessions`; `scripting` + host access to add the bar to tabs
+that were open before install; `favicon` to read Chrome's favicon cache. The `sessions` permission
+allows restoring a tab when its mini window is closed. **Note:** The `sessions` permission was added
+to support this feature but cannot be verified in the jsdom test environment; however, the Chrome API
+documentation indicates it does not trigger an additional install warning beyond the existing tab access.
+Host access matches the content script's sites, so it adds no install warning.
 
 ## Develop
 
