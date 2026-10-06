@@ -5,7 +5,7 @@ import { createHub } from './hub.js';
 import { logger } from './logger.js';
 import { identifySender, parseClientMessage } from './messages.js';
 import { migrateStorage } from './migrate.js';
-import { createPeeks } from './peek.js';
+import { createPeeks, reopenClosed } from './peek.js';
 import { createPreviews } from './previews.js';
 
 /** @typedef {import('./hub.js').Hub} Hub */
@@ -124,7 +124,7 @@ function registerTabEvents({ api, hub, peeks, previews }) {
   tabs.onRemoved.addListener((id, info) => {
     hub.forget(id);
     hub.schedule(info.windowId);
-    void forgetClosed(id, { hub, peeks, previews });
+    void forgetClosed(id, { api, hub, peeks, previews });
   });
   tabs.onMoved.addListener((_id, info) => hub.schedule(info.windowId));
   // Also heals tabs opened before install: the push to them fails and the bar is injected.
@@ -148,12 +148,19 @@ function registerTabEvents({ api, hub, peeks, previews }) {
 /**
  * A closed tab's screenshot goes, and if it was peeked, its home window's bar drops its chip.
  * @param {number} tabId
- * @param {Pick<Services, 'hub' | 'peeks' | 'previews'>} services
+ * @param {Pick<Services, 'api' | 'hub' | 'peeks' | 'previews'>} services
  */
-async function forgetClosed(tabId, { hub, peeks, previews }) {
+async function forgetClosed(tabId, { api, hub, peeks, previews }) {
   const origin = await peeks.originOf(tabId);
   await Promise.all([peeks.forget(tabId), previews.forget(tabId)]);
-  if (origin) hub.schedule(origin.windowId);
+  if (!origin) return;
+  // Only closing its mini window removes a peeked tab (Return moves it): bring it back.
+  try {
+    await reopenClosed(api, origin);
+  } catch (err) {
+    logger.warn('could not reopen a peeked tab whose window was closed', err);
+  }
+  hub.schedule(origin.windowId);
 }
 
 /**

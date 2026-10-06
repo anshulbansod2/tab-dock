@@ -124,6 +124,23 @@ describe('previews and peeks', () => {
     expect(api.storage.session.data).toEqual({});
     expect(api.tabs.sendMessage).toHaveBeenCalledWith(1, expect.anything(), { frameId: 0 });
   });
+
+  it('reopens a peeked tab in its old place when its mini window is closed', async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    api.state.tabs.splice(1, 1);
+    api.tabs.onRemoved.emit(2, { windowId: 77, isWindowClosing: true });
+    await flushPromises();
+    await flushPromises();
+    await flushPromises();
+    expect(api.tabs.create).toHaveBeenCalledWith({
+      windowId: 1,
+      index: 1,
+      url: 'https://example.com/2',
+      active: false,
+    });
+  });
 });
 
 describe('registerBackground', () => {

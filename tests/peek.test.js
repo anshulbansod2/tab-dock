@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createPeeks } from '../background/peek.js';
+import { createPeeks, reopenClosed } from '../background/peek.js';
 import { createChrome, makeTab } from './helpers/chrome.js';
 
 const BOUNDS = { left: 300, top: 400, width: 480, height: 320 };
@@ -89,5 +89,58 @@ describe('peeking a tab live', () => {
     api.windows.create.mockRejectedValueOnce(new Error('Invalid bounds'));
     await expect(peeks.open(2, BOUNDS)).rejects.toThrow('Invalid bounds');
     expect(await peeks.originOf(2)).toBeNull();
+  });
+});
+
+describe('reopening a peeked tab whose mini window was closed', () => {
+  const origin = { windowId: 1, index: 1, groupId: 10, pinned: true, url: 'https://example.com/2' };
+
+  beforeEach(() => {
+    // the tabs Chrome hands back: restored (42, 43) or reopened (50, 999)
+    for (const id of [42, 43, 50, 999]) api.state.tabs.push(makeTab({ id, windowId: 88 }));
+  });
+
+  it('restores the closed mini window and moves its tab home, grouped and pinned', async () => {
+    api.sessions.getRecentlyClosed.mockResolvedValue([
+      { window: { sessionId: 's1', tabs: [{ url: origin.url }] } },
+    ]);
+    api.sessions.restore.mockResolvedValue({ window: { tabs: [{ id: 42, url: origin.url }] } });
+    await reopenClosed(api, origin);
+    expect(api.sessions.restore).toHaveBeenCalledWith('s1');
+    expect(api.tabs.move).toHaveBeenCalledWith(42, { windowId: 1, index: 1 });
+    expect(api.tabs.group).toHaveBeenCalledWith({ groupId: 10, tabIds: 42 });
+    expect(api.tabs.update).toHaveBeenCalledWith(42, { pinned: true });
+  });
+
+  it('restores a closed tab entry too', async () => {
+    api.sessions.getRecentlyClosed.mockResolvedValue([
+      { tab: { sessionId: 't1', url: origin.url } },
+    ]);
+    api.sessions.restore.mockResolvedValue({ tab: { id: 43, url: origin.url } });
+    await reopenClosed(api, { ...origin, pinned: false });
+    expect(api.tabs.move).toHaveBeenCalledWith(43, { windowId: 1, index: 1 });
+    expect(api.tabs.update).not.toHaveBeenCalled();
+  });
+
+  it('never restores something else that was closed more recently', async () => {
+    api.sessions.getRecentlyClosed.mockResolvedValue([
+      { tab: { sessionId: 'x', url: 'https://other.example/' } },
+    ]);
+    await reopenClosed(api, origin);
+    expect(api.sessions.restore).not.toHaveBeenCalled();
+    expect(api.tabs.create).toHaveBeenCalledWith({
+      windowId: 1,
+      index: 1,
+      url: origin.url,
+      active: false,
+    });
+  });
+
+  it('falls back to reopening its address when the session cannot be restored', async () => {
+    api.sessions.getRecentlyClosed.mockRejectedValue(new Error('unavailable'));
+    api.tabs.create.mockResolvedValue({ id: 50 });
+    await reopenClosed(api, origin);
+    expect(api.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: origin.url }));
+    expect(api.tabs.group).toHaveBeenCalledWith({ groupId: 10, tabIds: 50 });
   });
 });

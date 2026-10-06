@@ -28,15 +28,59 @@ async function savePeeks(store, peeks) {
  * @param {PeekOrigin} origin
  */
 async function doBack(api, store, tabId, origin) {
+  const p = await getPeeks(store);
+  delete p[tabId]; // first, so the focus change this causes finds nothing left to return
+  await savePeeks(store, p);
+  await placeHome(api, tabId, origin);
+}
+
+/**
+ * Puts a tab where a peek took it from: its window and index, group and pin (or, if that
+ * window is gone, the end of the last-used one), and brings that window forward.
+ * @param {typeof chrome} api
+ * @param {number} tabId
+ * @param {PeekOrigin} origin
+ */
+async function placeHome(api, tabId, origin) {
   const { windowId, same } = await homeWindow(api, origin);
   await api.tabs.move(tabId, { windowId, index: same ? origin.index : -1 });
-  const p = await getPeeks(store);
-  delete p[tabId];
-  await savePeeks(store, p);
   if (same && origin.groupId !== UNGROUPED_ID && (await groupExists(api, origin.groupId)))
     await api.tabs.group({ groupId: origin.groupId, tabIds: tabId });
   if (origin.pinned) await api.tabs.update(tabId, { pinned: true });
   if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
+}
+
+/**
+ * A peek's window was closed (its close button, Cmd/Ctrl+W), which closes the tab with it.
+ * Brings the tab back to its old place: restored from the session when the closed item is that
+ * tab (history and page state come back), else reopened at its address.
+ * @param {typeof chrome} api
+ * @param {PeekOrigin} origin
+ */
+export async function reopenClosed(api, origin) {
+  let tabId = await restoreFromSession(api, origin.url).catch(() => null);
+  if (tabId === null) {
+    const { windowId, same } = await homeWindow(api, origin);
+    const index = same ? origin.index : -1;
+    tabId = (await api.tabs.create({ windowId, index, url: origin.url, active: false })).id ?? null;
+  }
+  if (tabId !== null) await placeHome(api, tabId, origin);
+}
+
+/**
+ * Restores the most recently closed item if it is the tab at `url` (alone in its closed mini
+ * window, or as a tab), and returns the restored tab's id.
+ * @param {typeof chrome} api
+ * @param {string | undefined} url
+ * @returns {Promise<number | null>}
+ */
+async function restoreFromSession(api, url) {
+  const [recent] = await api.sessions.getRecentlyClosed({ maxResults: 1 });
+  const closed = recent?.window?.tabs?.[0] ?? recent?.tab;
+  const sessionId = recent?.window?.sessionId ?? recent?.tab?.sessionId;
+  if (!sessionId || !url || closed?.url !== url) return null;
+  const restored = await api.sessions.restore(sessionId);
+  return (restored?.window?.tabs?.[0] ?? restored?.tab)?.id ?? null;
 }
 
 /**
