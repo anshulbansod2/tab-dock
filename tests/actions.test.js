@@ -149,4 +149,60 @@ describe('handleAction', () => {
       expect(api.tabs.group).not.toHaveBeenCalled();
     });
   });
+
+  describe('peeking', () => {
+    const BOUNDS = { left: 10, top: 20, width: 480, height: 320 };
+    let peeks;
+
+    beforeEach(() => {
+      peeks = {
+        open: vi.fn(async () => undefined),
+        back: vi.fn(async () => undefined),
+        focus: vi.fn(async () => undefined),
+        originOf: vi.fn(async () => null),
+      };
+    });
+
+    it('opens a tab from the same window in a mini window', async () => {
+      await handleAction({ type: 'peek', tabId: 2, bounds: BOUNDS }, client, api, peeks);
+      expect(peeks.open).toHaveBeenCalledWith(2, BOUNDS);
+    });
+
+    it.each([
+      ['another window', 3],
+      ["the bar's own tab", 1],
+    ])('will not peek a tab from %s', async (_name, tabId) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await handleAction({ type: 'peek', tabId, bounds: BOUNDS }, client, api, peeks);
+      expect(peeks.open).not.toHaveBeenCalled();
+    });
+
+    it('returns the sending tab when its mini window asks', async () => {
+      await handleAction({ type: 'return' }, { tabId: 2, windowId: 77 }, api, peeks);
+      expect(peeks.back).toHaveBeenCalledWith(2);
+    });
+
+    it("brings forward a peeked tab's window when its away chip is clicked", async () => {
+      api.state.tabs[1].windowId = 77;
+      peeks.originOf.mockResolvedValue({ windowId: 1, index: 1, groupId: 10 });
+      await handleAction({ type: 'activate', tabId: 2 }, client, api, peeks);
+      expect(peeks.focus).toHaveBeenCalledWith(2);
+      expect(api.tabs.update).not.toHaveBeenCalled();
+    });
+
+    it('can close a peeked tab from its away chip', async () => {
+      api.state.tabs[1].windowId = 77;
+      peeks.originOf.mockResolvedValue({ windowId: 1, index: 1, groupId: 10 });
+      await handleAction({ type: 'close', tabId: 2 }, client, api, peeks);
+      expect(api.tabs.remove).toHaveBeenCalledWith(2);
+    });
+
+    it('still refuses tabs from other windows that are not peeked from this one', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      peeks.originOf.mockResolvedValue({ windowId: 9, index: 0, groupId: -1 });
+      await handleAction({ type: 'activate', tabId: 3 }, client, api, peeks);
+      expect(peeks.focus).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalled();
+    });
+  });
 });

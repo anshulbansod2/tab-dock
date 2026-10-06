@@ -18,7 +18,7 @@ beforeEach(() => {
       (t) => (windowId === undefined || t.windowId === windowId) && (!active || t.active),
     ),
   );
-  registerBackground(api);
+  registerBackground(api, { shrink: async (url) => `${url}#small` });
 });
 
 afterEach(() => vi.useRealTimers());
@@ -37,6 +37,67 @@ async function settle() {
   await vi.advanceTimersByTimeAsync(50);
   await flushPromises();
 }
+
+describe('previews and peeks', () => {
+  const BOUNDS = { left: 10, top: 20, width: 480, height: 320 };
+  const reply = async (message, sender) => {
+    const { sendResponse } = deliver(message, sender);
+    await flushPromises();
+    await flushPromises();
+    return sendResponse.mock.calls[0]?.[0];
+  };
+
+  it('answers a preview request with the screenshot taken while the tab was shown', async () => {
+    api.tabs.onActivated.emit({ tabId: 1, windowId: 1 });
+    await vi.advanceTimersByTimeAsync(600);
+    await flushPromises();
+    expect(await reply({ type: 'preview', tabId: 1 }, createSender({ tabId: 2 }))).toMatchObject({
+      image: 'data:image/jpeg;base64,shot#small',
+    });
+  });
+
+  it('captures again when the visible tab finishes loading', async () => {
+    api.tabs.onUpdated.emit(1, { status: 'complete' }, api.state.tabs[0]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(api.tabs.captureVisibleTab).toHaveBeenCalledWith(1, expect.anything());
+  });
+
+  it('will not hand out previews of tabs in other windows', async () => {
+    api.state.tabs.push(makeTab({ id: 9, windowId: 3 }));
+    expect(await reply({ type: 'preview', tabId: 9 }, createSender({ tabId: 2 }))).toBeNull();
+  });
+
+  it("peeks a tab, shows it away in its home window's bar, and returns it", async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    expect(api.windows.create).toHaveBeenCalledWith(expect.objectContaining({ tabId: 2 }));
+    api.state.tabs[1].windowId = 77; // Chrome moved it into the mini window
+    const home = await reply({ type: 'hello' }, createSender({ tabId: 1 }));
+    expect(home.tabs.map((t) => [t.id, Boolean(t.away)])).toEqual([
+      [1, false],
+      [2, true],
+    ]);
+    const mini = await reply({ type: 'hello' }, createSender({ tabId: 2, windowId: 77 }));
+    expect(mini.peek).toEqual({ home: { id: 10, title: 'Work', color: 'blue' } });
+    deliver({ type: 'return' }, createSender({ tabId: 2, windowId: 77 }));
+    await flushPromises();
+    await flushPromises();
+    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
+  });
+
+  it('closing a mini window forgets its peek and refreshes the home window', async () => {
+    deliver({ type: 'peek', tabId: 2, bounds: BOUNDS }, createSender({ tabId: 1 }));
+    await flushPromises();
+    await flushPromises();
+    api.state.tabs.splice(1, 1);
+    api.tabs.onRemoved.emit(2, { windowId: 77, isWindowClosing: true });
+    await flushPromises();
+    await settle();
+    expect(api.storage.session.data).toEqual({});
+    expect(api.tabs.sendMessage).toHaveBeenCalledWith(1, expect.anything(), { frameId: 0 });
+  });
+});
 
 describe('registerBackground', () => {
   it('answers hello with the sender’s snapshot', async () => {

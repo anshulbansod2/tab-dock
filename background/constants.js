@@ -10,6 +10,9 @@ export const MSG = Object.freeze({
   MOVE: 'move',
   REGROUP: 'regroup',
   NEW_GROUP: 'newgroup',
+  PREVIEW: 'preview',
+  PEEK: 'peek',
+  RETURN: 'return',
 });
 
 /** Mirrors chrome.tabGroups.TAB_GROUP_ID_NONE so pure modules need no chrome global. */

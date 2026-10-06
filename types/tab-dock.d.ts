@@ -14,6 +14,8 @@ interface BarTab {
   favIconUrl: string | null;
   /** True only for the tab this bar is rendered in. */
   active: boolean;
+  /** Out in a mini window (peeked); clicking brings that window forward. */
+  away?: boolean;
 }
 
 interface Snapshot {
@@ -22,6 +24,8 @@ interface Snapshot {
   tabs: BarTab[];
   /** Every group in the window, in strip order: where a tab can be moved to. */
   groups: BarGroup[];
+  /** Set when this bar's tab is peeked into a mini window: the group it returns to. */
+  peek?: { home: BarGroup | null };
 }
 
 type ClientMessage =
@@ -33,7 +37,13 @@ type ClientMessage =
   | { type: 'move'; tabId: number; toIndex: number }
   /** groupId -1 takes the tab out of its group. */
   | { type: 'regroup'; tabId: number; groupId: number }
-  | { type: 'newgroup'; tabId: number };
+  | { type: 'newgroup'; tabId: number }
+  /** Asks for the tab's hover-card screenshot (replied to, like hello). */
+  | { type: 'preview'; tabId: number }
+  /** Moves the tab into a mini window at these screen bounds. */
+  | { type: 'peek'; tabId: number; bounds: PeekBounds }
+  /** Sent from a peeked tab's own bar: put me back. */
+  | { type: 'return' };
 
 type ServerMessage = { type: 'snapshot'; snapshot: Snapshot };
 
@@ -41,4 +51,30 @@ type ServerMessage = { type: 'snapshot'; snapshot: Snapshot };
 interface ClientInfo {
   tabId: number;
   windowId: number;
+}
+
+/** Where a peeked tab came from, to put it back. */
+interface PeekOrigin {
+  windowId: number;
+  index: number;
+  groupId: number;
+}
+
+/** A peek window's screen rectangle. */
+interface PeekBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** The background's live-peek store (background/peek.js). */
+type Peeks = ReturnType<typeof import('../background/peek.js').createPeeks>;
+
+/** A window as the hub sees it (background/hub.js). */
+interface WindowState {
+  tabs: chrome.tabs.Tab[];
+  groups: chrome.tabGroups.TabGroup[];
+  away: { tab: chrome.tabs.Tab; origin: PeekOrigin }[];
+  homes: Map<number, chrome.tabGroups.TabGroup | null>;
 }

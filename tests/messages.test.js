@@ -31,6 +31,15 @@ describe('parseClientMessage', () => {
       { type: 'newgroup', tabId: 3 },
       { type: 'newgroup', tabId: 3 },
     ],
+    [
+      { type: 'preview', tabId: 3 },
+      { type: 'preview', tabId: 3 },
+    ],
+    [
+      { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320, x: 1 } },
+      { type: 'peek', tabId: 3, bounds: { left: -40, top: 20, width: 480, height: 320 } },
+    ],
+    [{ type: 'return' }, { type: 'return' }],
   ])('accepts %j', (raw, expected) => {
     expect(parseClientMessage(raw)).toEqual(expected);
   });
@@ -53,6 +62,12 @@ describe('parseClientMessage', () => {
     { type: 'regroup', tabId: 3, groupId: -2 },
     { type: 'regroup', tabId: 3, groupId: '10' },
     { type: 'newgroup' },
+    { type: 'preview' },
+    { type: 'peek', tabId: 3 },
+    { type: 'peek', tabId: 3, bounds: { left: 0, top: 0, width: 480 } },
+    { type: 'peek', tabId: 3, bounds: { left: 0, top: 0, width: 10, height: 320 } },
+    { type: 'peek', tabId: 3, bounds: { left: 0.5, top: 0, width: 480, height: 320 } },
+    { type: 'peek', tabId: 3, bounds: { left: 1e9, top: 0, width: 480, height: 320 } },
   ])('rejects %j', (raw) => {
     expect(parseClientMessage(raw)).toBeNull();
   });

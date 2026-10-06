@@ -14,6 +14,9 @@
       MOVE: /** @type {const} */ ('move'),
       REGROUP: /** @type {const} */ ('regroup'),
       NEW_GROUP: /** @type {const} */ ('newgroup'),
+      PREVIEW: /** @type {const} */ ('preview'),
+      PEEK: /** @type {const} */ ('peek'),
+      RETURN: /** @type {const} */ ('return'),
     }),
     /** Custom tag (not an id) so page markup can't collide with or block the bar. */
     HOST_TAG: 'tab-dock-bar',

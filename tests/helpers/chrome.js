@@ -54,7 +54,13 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       getURL: (path) => `chrome-extension://ext-id${path}`,
       getManifest: () => ({ content_scripts: [{ js: ['content/core.js', 'content/main.js'] }] }),
     },
-    storage: { local: createStorage() },
+    storage: { local: createStorage(), session: createStorage() },
+    windows: {
+      create: vi.fn(async (props) => ({ id: 77, ...props })),
+      get: vi.fn(async (id) => ({ id, type: 'normal' })),
+      update: vi.fn(async (id, props) => ({ id, ...props })),
+      getLastFocused: vi.fn(async () => ({ id: 1, type: 'normal' })),
+    },
     scripting: { executeScript: vi.fn(async () => []) },
     tabs: {
       query: vi.fn(async ({ windowId }) => state.tabs.filter((t) => t.windowId === windowId)),
@@ -64,6 +70,7 @@ export function createChrome({ tabs = [], groups = [] } = {}) {
       create: vi.fn(async (props) => ({ id: 999, ...props })),
       group: vi.fn(async () => 1),
       ungroup: vi.fn(async () => undefined),
+      captureVisibleTab: vi.fn(async () => 'data:image/jpeg;base64,shot'),
       move: vi.fn(async (id) => get(id)),
       sendMessage: vi.fn(async () => undefined),
       onCreated: createEvent(),

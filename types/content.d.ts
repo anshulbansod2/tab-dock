@@ -10,6 +10,9 @@ interface ContentConstants {
     MOVE: 'move';
     REGROUP: 'regroup';
     NEW_GROUP: 'newgroup';
+    PREVIEW: 'preview';
+    PEEK: 'peek';
+    RETURN: 'return';
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
