@@ -215,6 +215,11 @@ describe('styles', () => {
     expect(ns.styles).not.toMatch(/animation:/);
   });
 
+  it('rings the whole chip, close button included, when its tab has keyboard focus', () => {
+    expect(rule('.hh-chip:has(> .hh-tab:focus-visible)')).toMatch(/outline: 2px solid/);
+    expect(ns.styles).not.toMatch(/\.hh-tab:focus-visible\s*[,{]/); // not the tab button alone
+  });
+
   it('defines one light-dark() token set and a visible focus ring', () => {
     expect(ns.styles).toMatch(/--hh-glass:\s*light-dark\(/);
     expect(ns.styles).not.toContain('prefers-color-scheme');
