@@ -15,7 +15,7 @@ import { buildSnapshot } from './tabModel.js';
  * @param {typeof chrome} deps.api
  * @param {Pick<ReturnType<typeof createFavicons>, 'inline'>} [deps.favicons]
  * @param {number} [deps.debounceMs]
- * @param {Pick<Peeks, 'all'>} [deps.peeks] - live peeks, so bars show peeked tabs as away
+ * @param {Pick<Peeks, 'all' | 'forget'>} [deps.peeks] - live peeks for consistency
  */
 export function createHub({
   api,
@@ -104,7 +104,7 @@ export function createHub({
  * the group each returns to (`homes`).
  * @param {typeof chrome} api
  * @param {number} windowId
- * @param {Pick<Peeks, 'all'>} [peeks]
+ * @param {Pick<Peeks, 'all' | 'forget'>} [peeks]
  * @returns {Promise<WindowState>}
  */
 async function windowState(api, windowId, peeks) {
@@ -114,11 +114,24 @@ async function windowState(api, windowId, peeks) {
     peeks ? peeks.all() : new Map(),
   ]);
   const homes = new Map();
+  const stale = [];
   for (const [tabId, origin] of peeked) {
     if (tabs.some((tab) => tab.id === tabId)) {
-      homes.set(tabId, await groupOrNull(api, origin.groupId));
+      // Validate the tab is in a popup window before treating it as peeked
+      try {
+        const currentWindow = await api.windows.get(windowId);
+        if (currentWindow.type === 'popup') {
+          homes.set(tabId, await groupOrNull(api, origin.groupId));
+        } else {
+          stale.push(tabId);
+        }
+      } catch {
+        stale.push(tabId);
+      }
     }
   }
+  // Clean up stale peek entries whose window is no longer popup type
+  for (const tabId of stale) await peeks?.forget(tabId);
   return { tabs, groups, homes };
 }
 
