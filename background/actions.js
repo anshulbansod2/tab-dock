@@ -42,7 +42,25 @@ export async function handleAction(msg, client, api, peeks) {
  */
 async function actOnTab(msg, senderTabId, api) {
   if (msg.type === MSG.CLOSE) await api.tabs.remove(msg.tabId);
-  else await api.tabs.update(msg.tabId, { active: true });
+  else await switchTo(msg.tabId, senderTabId, api);
+}
+
+/**
+ * Opens a tab. Chrome expands a collapsed group to show its tab but never folds it again, so
+ * switching to another group from the dock folds the group left behind: the tab strip keeps
+ * only the group in use open. Folded only after the switch, as Chrome won't collapse the
+ * active tab's group.
+ * @param {number} tabId
+ * @param {number} senderTabId
+ * @param {typeof chrome} api
+ */
+async function switchTo(tabId, senderTabId, api) {
+  const [sender, target] = await Promise.all([api.tabs.get(senderTabId), api.tabs.get(tabId)]);
+  await api.tabs.update(tabId, { active: true });
+  const left = effectiveGroupId(sender);
+  if (left === UNGROUPED_ID || left === effectiveGroupId(target)) return;
+  if (sender.windowId !== target.windowId) return;
+  await api.tabGroups.update(left, { collapsed: true });
 }
 
 /**

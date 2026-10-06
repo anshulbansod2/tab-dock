@@ -90,6 +90,21 @@ export async function switcherCheck(lab) {
   at = await glide(lab, at, { x: 5, y: 5 });
   if ((await dockState(lab)).label !== 'Work') problems.push('leaving the dock kept Read');
   at = await glide(lab, at, read);
+  await clickAndCheck(lab, read, problems);
+  return problems.length
+    ? { status: 'FAIL', detail: problems.join('; ') }
+    : {
+        status: 'PASS',
+        detail: `${start.swatches.length} swatches held still under the pointer; Read shown, left, clicked: page four opened, Work folded`,
+      };
+}
+
+/**
+ * Clicks the Read swatch: Read's last-used tab opens, Work folds in the tab strip; then the
+ * test page is shown again.
+ * @param {Lab} lab @param {{ x: number, y: number }} read @param {string[]} problems
+ */
+async function clickAndCheck(lab, read, problems) {
   await lab.mouse('one', 'mousePressed', read.x, read.y, 1);
   await lab.mouse('one', 'mouseReleased', read.x, read.y);
   await sleep(800);
@@ -97,13 +112,11 @@ export async function switcherCheck(lab) {
     `chrome.tabs.query({ windowId: ${lab.main}, active: true }).then(([t]) => t.url)`,
   );
   if (!active.endsWith('/four.html')) problems.push(`clicking Read opened ${active}`);
+  const work = await lab.sw(
+    `chrome.tabGroups.query({ windowId: ${lab.main}, title: 'Work' }).then(([g]) => g?.collapsed)`,
+  );
+  if (work !== true) problems.push('Work stayed expanded in the tab strip after leaving it');
   await lab.sw(
     `chrome.tabs.query({ url: ${JSON.stringify(lab.url('one'))} }).then(([t]) => chrome.tabs.update(t.id, { active: true })).then(() => 1)`,
   );
-  return problems.length
-    ? { status: 'FAIL', detail: problems.join('; ') }
-    : {
-        status: 'PASS',
-        detail: `${start.swatches.length} swatches held still under the pointer; Read shown, left, clicked: page four opened`,
-      };
 }
