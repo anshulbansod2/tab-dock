@@ -174,15 +174,24 @@
 @media (prefers-reduced-motion: reduce) { .hh-drop-target { transition: none; } }
 /* Hover card: the tab as last seen; a click opens it live in a mini window. */
 .hh-card {
-  all: unset; position: fixed; pointer-events: auto; box-sizing: border-box; width: 360px;
+  all: unset; position: fixed; pointer-events: auto; box-sizing: border-box; width: 480px;
   display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; cursor: pointer;
   color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
   border: 1px solid var(--hh-edge); backdrop-filter: blur(20px) saturate(1.8);
   box-shadow: inset 0 1px 0 var(--hh-highlight), 0 18px 44px -14px rgb(0 0 0 / 0.5);
 }
+/* Joined to the dock: no border or rounding on the side that touches it. */
+.hh-card[data-side='above'] {
+  border-bottom: 0; border-radius: 14px 14px 6px 6px;
+  box-shadow: inset 0 1px 0 var(--hh-highlight), 0 -12px 36px -16px rgb(0 0 0 / 0.45);
+}
+.hh-card[data-side='below'] {
+  border-top: 0; border-radius: 6px 6px 14px 14px;
+  box-shadow: 0 16px 36px -16px rgb(0 0 0 / 0.45);
+}
 .hh-card:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 1px; }
 .hh-card-image {
-  display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top;
+  display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top;
   background: var(--hh-chip); border-bottom: 1px solid var(--hh-edge);
 }
 .hh-card-empty {

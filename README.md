@@ -26,8 +26,9 @@ Tabs that were already open get the bar the first time you switch to them — no
 - Move a tab to another group: right-click its chip for **Move to group**, **New group**,
   **Remove from group** or **Close tab** — or drag the chip up off the dock and drop it on a
   group's dot.
-- Hover a chip to see that tab as you last saw it. Click the card to open the tab live in a
-  small window right there, without leaving the page you're on; **Return to <group>** in that
+- Hover a chip and a card grows out of the dock showing that tab as you last saw it (the tab
+  you are on refreshes its picture every 30 s). Click the card to open the tab live in a small
+  window over that same spot, without leaving the page you're on; **Return to <group>** in that
   window puts it back where it was. The window is an ordinary one, so it does not stay on top.
 - Keyboard: focus a chip, then ←/→/Home/End to move, Enter/Space to switch, Delete to close,
   Alt+Shift+←/→ to reorder, Shift+F10 (or the menu key) for the tab menu. With the group

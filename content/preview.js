@@ -10,7 +10,7 @@
   const LEAVE_MS = 150; // off the card: the user is done with it
   const FRESH_MS = 30_000;
   const REACH_MS = 400; // from the chip to the card, across the dock edge and the gap
-  const CARD = { width: 360, height: 270, gap: 8, edge: 8 };
+  const CARD = { width: 480, edge: 8 }; // as wide as the mini window, and the screenshot
   const PEEK = { width: 480, height: 320, titleBar: 28 };
 
   ns.bindPreview = ({ mount, ...deps }) => {
@@ -108,7 +108,8 @@
           onPeek(tabId, bounds);
         });
         layer.replaceChildren(el);
-        place(el, chip.getBoundingClientRect(), win);
+        const dock = chip.closest('.hh-bar') ?? chip;
+        place(el, chip.getBoundingClientRect(), dock.getBoundingClientRect(), win);
         shown = el;
       },
     };
@@ -183,19 +184,22 @@
   }
 
   /**
-   * Below the chip when there is room, otherwise above it; always inside the window.
+   * Attached to the dock: flush with its edge facing the larger part of the page (growing up
+   * from a dock at the bottom), centred on the chip and kept inside the window. A card above
+   * is pinned by its bottom so its height never has to be known.
    * @param {HTMLElement} card
-   * @param {Pick<DOMRect, 'left' | 'top' | 'bottom' | 'width'>} chip
+   * @param {Pick<DOMRect, 'left' | 'width'>} chip
+   * @param {Pick<DOMRect, 'top' | 'bottom'>} dock
    * @param {Window} win
    */
-  function place(card, chip, win) {
-    const below = chip.bottom + CARD.gap;
-    const fits = below + CARD.height <= win.innerHeight - CARD.edge;
-    const top = fits ? below : Math.max(CARD.edge, chip.top - CARD.gap - CARD.height);
+  function place(card, chip, dock, win) {
+    const above = dock.top > win.innerHeight - dock.bottom;
     const centre = chip.left + chip.width / 2 - CARD.width / 2;
     const left = Math.min(Math.max(CARD.edge, centre), win.innerWidth - CARD.width - CARD.edge);
+    card.dataset.side = above ? 'above' : 'below';
     card.style.setProperty('left', `${Math.round(left)}px`);
-    card.style.setProperty('top', `${Math.round(top)}px`);
+    if (above) card.style.setProperty('bottom', `${Math.round(win.innerHeight - dock.top)}px`);
+    else card.style.setProperty('top', `${Math.round(dock.bottom)}px`);
   }
 
   /**

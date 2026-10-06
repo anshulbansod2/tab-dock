@@ -39,6 +39,7 @@ beforeEach(() => {
   ns.render(mount, { snapshot, collapsed: false });
   setWindow({ innerWidth: 1200, innerHeight: 800 });
   chipAt(2, { left: 500, top: 100 }); // dock near the top: room below
+  dockAt({ top: 92, bottom: 140 });
   request = vi.fn(async () => ({ image: IMAGE, at: 0 }));
   onPeek = vi.fn();
   clock = 3 * 60_000;
@@ -67,6 +68,17 @@ function chipAt(id, { left, top }) {
   });
 }
 
+function dockAt({ top, bottom }) {
+  mount.querySelector('.hh-bar').getBoundingClientRect = () => ({
+    left: 300,
+    right: 900,
+    width: 600,
+    top,
+    bottom,
+    height: bottom - top,
+  });
+}
+
 const tabEl = (id) => mount.querySelector(`.hh-tab[data-tab-id="${id}"]`);
 const card = () => layer.querySelector('.hh-card');
 const hover = (el) => el.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
@@ -88,13 +100,28 @@ describe('hover card', () => {
     expect(card().querySelector('img').src).toBe(IMAGE);
     expect(card().textContent).toContain('YouTube');
     expect(card().textContent).toContain('3 min ago');
-    expect(parseFloat(card().style.top)).toBeGreaterThan(132);
   });
 
-  it('opens above the chip when the dock sits at the bottom', async () => {
-    chipAt(2, { left: 500, top: 760 });
+  it('hangs from the dock edge facing the page, centred on the chip', async () => {
     await hoverFor(300);
-    expect(parseFloat(card().style.top)).toBeLessThan(760);
+    expect(card().style.top).toBe('140px'); // flush with the dock's bottom edge
+    expect(card().style.left).toBe(`${560 - 240}px`); // chip centre minus half the card
+    expect(card().dataset.side).toBe('below');
+  });
+
+  it('grows up out of the dock when it sits at the bottom', async () => {
+    chipAt(2, { left: 500, top: 760 });
+    dockAt({ top: 752, bottom: 800 });
+    await hoverFor(300);
+    expect(card().style.bottom).toBe('48px'); // window height minus the dock's top edge
+    expect(card().style.top).toBe('');
+    expect(card().dataset.side).toBe('above');
+  });
+
+  it('stays inside the window next to an edge chip', async () => {
+    chipAt(2, { left: 1150, top: 100 });
+    await hoverFor(300);
+    expect(card().style.left).toBe(`${1200 - 480 - 8}px`);
   });
 
   it('says so when there is no screenshot yet', async () => {
@@ -182,9 +209,10 @@ describe('hover card', () => {
   it('turns into the live tab when clicked, in a mini window where the card was', async () => {
     setWindow({ screenX: 100, screenY: 50, outerWidth: 1200, outerHeight: 880 });
     await hoverFor(300);
-    card().getBoundingClientRect = () => ({ left: 400, top: 140, width: 360, height: 270 });
+    card().getBoundingClientRect = () => ({ left: 400, top: 140, width: 480, height: 350 });
     card().click();
-    expect(onPeek).toHaveBeenCalledWith(2, { left: 500, top: 242, width: 480, height: 320 });
+    // the window's page area lands exactly on the card; its title bar sits just above
+    expect(onPeek).toHaveBeenCalledWith(2, { left: 500, top: 242, width: 480, height: 378 });
     expect(card()).toBeNull();
   });
 
