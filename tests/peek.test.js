@@ -36,13 +36,42 @@ describe('peeking a tab live', () => {
     });
   });
 
+  /** Chrome's rule: a tab outside group 10 can't be dropped inside it (indexes 0–1 here). */
+  const enforceGroupContinuity = () => {
+    const joined = new Set();
+    api.tabs.group.mockImplementation(async ({ groupId, tabIds }) => (joined.add(tabIds), groupId));
+    api.tabs.move.mockImplementation(async (id, { index }) => {
+      if (!joined.has(id) && index >= 0 && index <= 1)
+        throw new Error('the specified input would disrupt group continuity in the tab strip');
+      return { id, index, groupId: joined.has(id) ? 10 : -1 };
+    });
+  };
+
   it('puts it back where it was, in its group, and focuses that window', async () => {
+    enforceGroupContinuity();
     await peeks.open(2, BOUNDS);
     await peeks.back(2);
-    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
+    // joining the group first brings it home; only then may it take its old spot inside
     expect(api.tabs.group).toHaveBeenCalledWith({ groupId: 10, tabIds: 2 });
+    expect(api.tabs.move).toHaveBeenLastCalledWith(2, { index: 1 });
     expect(api.windows.update).toHaveBeenCalledWith(1, { focused: true });
     expect(await peeks.originOf(2)).toBeNull();
+  });
+
+  it('keeps the way back when putting the tab home fails', async () => {
+    await peeks.open(2, BOUNDS);
+    api.tabs.group.mockRejectedValueOnce(new Error('Tabs cannot be edited right now'));
+    await expect(peeks.back(2)).rejects.toThrow();
+    expect(await peeks.originOf(2)).not.toBeNull(); // clicking back in, or closing, still works
+  });
+
+  it('goes to the end of the window when its old spot now lies inside a group', async () => {
+    enforceGroupContinuity();
+    api.state.tabs[2].index = 1; // an ungrouped tab whose old index is now inside group 10
+    await peeks.open(3, BOUNDS);
+    await peeks.back(3);
+    expect(api.tabs.move).toHaveBeenLastCalledWith(3, { windowId: 1, index: -1 });
+    expect(await peeks.originOf(3)).toBeNull();
   });
 
   it('puts an ungrouped tab back ungrouped', async () => {
@@ -107,8 +136,8 @@ describe('reopening a peeked tab whose mini window was closed', () => {
     api.sessions.restore.mockResolvedValue({ window: { tabs: [{ id: 42, url: origin.url }] } });
     await reopenClosed(api, origin);
     expect(api.sessions.restore).toHaveBeenCalledWith('s1');
-    expect(api.tabs.move).toHaveBeenCalledWith(42, { windowId: 1, index: 1 });
     expect(api.tabs.group).toHaveBeenCalledWith({ groupId: 10, tabIds: 42 });
+    expect(api.tabs.move).toHaveBeenLastCalledWith(42, { index: 1 });
     expect(api.tabs.update).toHaveBeenCalledWith(42, { pinned: true });
   });
 
@@ -118,7 +147,7 @@ describe('reopening a peeked tab whose mini window was closed', () => {
     ]);
     api.sessions.restore.mockResolvedValue({ tab: { id: 43, url: origin.url } });
     await reopenClosed(api, { ...origin, pinned: false });
-    expect(api.tabs.move).toHaveBeenCalledWith(43, { windowId: 1, index: 1 });
+    expect(api.tabs.move).toHaveBeenLastCalledWith(43, { index: 1 }); // in its group (10) first;
     expect(api.tabs.update).not.toHaveBeenCalled();
   });
 

@@ -28,10 +28,12 @@ async function savePeeks(store, peeks) {
  * @param {PeekOrigin} origin
  */
 async function doBack(api, store, tabId, origin) {
-  const p = await getPeeks(store);
-  delete p[tabId]; // first, so the focus change this causes finds nothing left to return
-  await savePeeks(store, p);
+  // Forgotten only once home: if putting it back fails, clicking back in or closing its window
+  // must still find the way. (The in-flight guard keeps the focus change this causes out.)
   await placeHome(api, tabId, origin);
+  const p = await getPeeks(store);
+  delete p[tabId];
+  await savePeeks(store, p);
 }
 
 /**
@@ -43,11 +45,35 @@ async function doBack(api, store, tabId, origin) {
  */
 async function placeHome(api, tabId, origin) {
   const { windowId, same } = await homeWindow(api, origin);
-  await api.tabs.move(tabId, { windowId, index: same ? origin.index : -1 });
-  if (same && origin.groupId !== UNGROUPED_ID && (await groupExists(api, origin.groupId)))
+  const grouped =
+    same && origin.groupId !== UNGROUPED_ID && (await groupExists(api, origin.groupId));
+  if (grouped) {
+    // Chrome won't drop a tab inside a group it isn't in, so it joins first (which also brings
+    // it into the group's window), then takes its old spot; a spot outside the group (it moved
+    // meanwhile) would take it out again, so it rejoins at the group's end.
     await api.tabs.group({ groupId: origin.groupId, tabIds: tabId });
+    const moved = await api.tabs.move(tabId, { index: origin.index });
+    if (!Array.isArray(moved) && moved.groupId !== origin.groupId)
+      await api.tabs.group({ groupId: origin.groupId, tabIds: tabId });
+  } else await moveInto(api, tabId, windowId, same ? origin.index : -1);
   if (origin.pinned) await api.tabs.update(tabId, { pinned: true });
   if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
+}
+
+/**
+ * Moves a tab to `index` in a window, or to the end when that spot now lies inside a group.
+ * @param {typeof chrome} api
+ * @param {number} tabId
+ * @param {number | undefined} windowId
+ * @param {number} index
+ */
+async function moveInto(api, tabId, windowId, index) {
+  try {
+    await api.tabs.move(tabId, { windowId, index });
+  } catch (err) {
+    if (index === -1) throw err;
+    await api.tabs.move(tabId, { windowId, index: -1 });
+  }
 }
 
 /**

@@ -90,7 +90,7 @@ describe('previews and peeks', () => {
     deliver({ type: 'return' }, createSender({ tabId: 2, windowId: 77 }));
     await flushPromises();
     await flushPromises();
-    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
+    expect(api.tabs.move).toHaveBeenLastCalledWith(2, { index: 1 }); // after rejoining its group;
   });
 
   const peekTwo = async () => {
@@ -105,7 +105,7 @@ describe('previews and peeks', () => {
     api.windows.onFocusChanged.emit(1);
     await flushPromises();
     await flushPromises();
-    expect(api.tabs.move).toHaveBeenCalledWith(2, { windowId: 1, index: 1 });
+    expect(api.tabs.move).toHaveBeenLastCalledWith(2, { index: 1 }); // after rejoining its group;
   });
 
   it('leaves it out while focus is in the mini window or another app', async () => {
