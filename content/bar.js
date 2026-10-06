@@ -47,12 +47,12 @@
     layer.className = 'hh-layer';
     shadow.append(mount, layer);
     const view = createView(mount);
-    /** @param {ClientMessage} message */
-    const send = (message) => connection.send(message);
+    /** @type {Pick<Connection, 'send' | 'request'>} */
+    const port = { send: (m) => connection.send(m), request: (m) => connection.request(m) };
     const win = doc.defaultView ?? window;
 
     const drag = ns.bindDrag({ host, mount, win, storage, storageEvents });
-    const moves = bindTabMoves({ mount, layer, win, view, send });
+    const moves = bindTabMoves({ mount, layer, win, view, ...port });
     const guard = guardHost(host, doc, { runtime, onStale: () => unmount() });
     const unmount = () => {
       guard.dispose();
@@ -69,9 +69,10 @@
       onOrphaned: unmount,
     });
     ns.bindEvents(mount, {
-      onActivate: (tabId) => send({ type: MSG.ACTIVATE, tabId }),
-      onClose: (tabId) => send({ type: MSG.CLOSE, tabId }),
-      onNew: () => send({ type: MSG.NEW }),
+      onActivate: (tabId) => port.send({ type: MSG.ACTIVATE, tabId }),
+      onClose: (tabId) => port.send({ type: MSG.CLOSE, tabId }),
+      onNew: () => port.send({ type: MSG.NEW }),
+      onReturn: () => port.send({ type: MSG.RETURN }),
       onMove: moves.onMove,
       onMenu: moves.onMenu,
       onToggleCollapse: () =>
@@ -182,12 +183,24 @@
   }
 
   /**
-   * Reordering by drag, and moving tabs between groups by the tab menu or by lifting a chip
-   * onto a group target.
+   * Reordering by drag, moving tabs between groups by the tab menu or by lifting a chip onto
+   * a group target, and the hover card that opens a tab in a mini window. The card has a
+   * layer of its own: the menu and drop targets replace their layer's children.
    * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window,
-   *   view: ReturnType<typeof createView>, send: (message: ClientMessage) => void }} deps
+   *   view: ReturnType<typeof createView>, send: (message: ClientMessage) => void,
+   *   request: Connection['request'] }} deps
    */
-  function bindTabMoves({ mount, layer, win, view, send }) {
+  function bindTabMoves({ mount, layer, win, view, send, request }) {
+    const cards = layer.ownerDocument.createElement('div');
+    cards.className = 'hh-layer';
+    layer.after(cards);
+    const preview = ns.bindPreview({
+      mount,
+      layer: cards,
+      win,
+      request,
+      onPeek: (tabId, bounds) => send({ type: MSG.PEEK, tabId, bounds }),
+    });
     const menu = ns.createGroupMenu({ layer, win, send });
     const drop = ns.createGroupDrop({ layer });
     /** @param {number} tabId @param {number} toIndex */
@@ -215,10 +228,12 @@
       onMove,
       /** @type {BarHandlers['onMenu']} */
       onMenu(tabId, point, tab) {
+        preview.hide();
         const snapshot = view.current();
         if (snapshot) menu.open({ tabId, point, snapshot, returnFocus: tab });
       },
       dispose() {
+        preview.dispose();
         reorder.dispose();
         menu.dispose();
         drop.hide();

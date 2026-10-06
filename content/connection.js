@@ -71,7 +71,7 @@
       }
     }
 
-    return { start, stop, send: (msg) => void call(msg) };
+    return { start, stop, send: (msg) => void call(msg), request: call };
   };
 
   /**

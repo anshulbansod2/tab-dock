@@ -266,3 +266,28 @@ describe('styles', () => {
     expect(rule('.hh-tabs')).toMatch(/mask-image:\s*linear-gradient/);
   });
 });
+
+describe('render (peeking)', () => {
+  it('marks a tab that is out in a mini window', () => {
+    renderTabs([tab(1, { active: true }), tab(2, { away: true })]);
+    const away = mount.querySelector('.hh-tab[data-tab-id="2"]');
+    expect(away.closest('.hh-chip').classList).toContain('hh-chip--away');
+    expect(away.getAttribute('aria-description')).toBe('Open in a mini window');
+  });
+
+  it("turns a peeked tab's own dock into a Return button", () => {
+    ns.render(mount, {
+      snapshot: { ...grouped, peek: { home: grouped.group } },
+      collapsed: false,
+    });
+    expect(mount.querySelector('.hh-tabs')).toBeNull();
+    const back = mount.querySelector('[data-action="return"]');
+    expect(back.textContent).toBe('Return to Research');
+    expect(mount.querySelector('.hh-bar').style.getPropertyValue('--hh-group')).toBe('#1a73e8');
+  });
+
+  it('says "Ungrouped" for a peeked tab with no group, even when collapsed', () => {
+    ns.render(mount, { snapshot: { ...grouped, peek: { home: null } }, collapsed: true });
+    expect(mount.querySelector('[data-action="return"]').textContent).toBe('Return to Ungrouped');
+  });
+});

@@ -26,6 +26,9 @@ Tabs that were already open get the bar the first time you switch to them — no
 - Move a tab to another group: right-click its chip for **Move to group**, **New group**,
   **Remove from group** or **Close tab** — or drag the chip up off the dock and drop it on a
   group's dot.
+- Hover a chip to see that tab as you last saw it. Click the card to open the tab live in a
+  small window right there, without leaving the page you're on; **Return to <group>** in that
+  window puts it back where it was. The window is an ordinary one, so it does not stay on top.
 - Keyboard: focus a chip, then ←/→/Home/End to move, Enter/Space to switch, Delete to close,
   Alt+Shift+←/→ to reorder, Shift+F10 (or the menu key) for the tab menu. With the group
   name focused, Alt+arrows move the dock and Alt+Home puts it back.
@@ -43,6 +46,9 @@ listens in the capture phase on `window` can still see them; that is a browser l
   Only bars whose content changed are sent anything (a title flicker in one group never
   touches the others), and hidden tabs only store the update: Chrome holds their repaint
   until they are shown.
+- Hover screenshots are taken only of the tab you are looking at, once it has settled for a
+  moment, shrunk to about 25 KB and kept in memory only (`storage.session`, the 60 most
+  recent). Incognito and browser pages are never captured; a site change drops the old one.
 - Favicons come from Chrome's own cache as small inline images, cached per site (bounded),
   so pages never fetch — or learn about — other tabs' sites.
 

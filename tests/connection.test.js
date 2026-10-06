@@ -72,6 +72,17 @@ describe('createConnection', () => {
     expect(onSnapshot).toHaveBeenCalledTimes(2);
   });
 
+  it('asks and returns the reply', async () => {
+    runtime.sendMessage.mockResolvedValueOnce({ image: 'data:image/jpeg;base64,x', at: 1 });
+    await expect(conn.request({ type: 'preview', tabId: 2 })).resolves.toEqual({
+      image: 'data:image/jpeg;base64,x',
+      at: 1,
+    });
+    runtime.sendMessage.mockRejectedValueOnce(new Error('Could not establish connection'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(conn.request({ type: 'preview', tabId: 2 })).resolves.toBeNull();
+  });
+
   it('sends actions', async () => {
     conn.start();
     conn.send({ type: 'new' });

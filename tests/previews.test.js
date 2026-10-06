@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPreviews } from '../background/previews.js';
+import { createPreviews, shrinkImage } from '../background/previews.js';
 import { createChrome, createStorage, flushPromises, makeTab } from './helpers/chrome.js';
 
 const SHOT = 'data:image/jpeg;base64,full';
@@ -102,5 +102,31 @@ describe('tab previews', () => {
     previews.schedule(1);
     await settle();
     expect(await previews.get(1)).toBeNull();
+  });
+});
+
+describe('shrinkImage', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('scales a screenshot down to card width as a JPEG data URL', async () => {
+    const drawImage = vi.fn();
+    const close = vi.fn();
+    vi.stubGlobal('fetch', async () => ({ blob: async () => new Blob(['png']) }));
+    vi.stubGlobal('createImageBitmap', async () => ({ width: 960, height: 600, close }));
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class {
+        /** @param {number} width @param {number} height */
+        constructor(width, height) {
+          Object.assign(this, { width, height });
+        }
+        getContext = () => ({ drawImage });
+        convertToBlob = async () => new Blob(['hi']);
+      },
+    );
+    const url = await shrinkImage('data:image/png;base64,x');
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 480, 300);
+    expect(close).toHaveBeenCalled();
+    expect(url).toBe(`data:image/jpeg;base64,${btoa('hi')}`);
   });
 });

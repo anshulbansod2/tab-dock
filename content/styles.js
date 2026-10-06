@@ -172,12 +172,42 @@
   border: 1px solid var(--hh-edge); backdrop-filter: blur(20px); white-space: nowrap;
 }
 @media (prefers-reduced-motion: reduce) { .hh-drop-target { transition: none; } }
+/* Hover card: the tab as last seen; a click opens it live in a mini window. */
+.hh-card {
+  all: unset; position: fixed; pointer-events: auto; box-sizing: border-box; width: 360px;
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; cursor: pointer;
+  color-scheme: light dark; color: var(--hh-fg); background: var(--hh-glass);
+  border: 1px solid var(--hh-edge); backdrop-filter: blur(20px) saturate(1.8);
+  box-shadow: inset 0 1px 0 var(--hh-highlight), 0 18px 44px -14px rgb(0 0 0 / 0.5);
+}
+.hh-card:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 1px; }
+.hh-card-image {
+  display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top;
+  background: var(--hh-chip); border-bottom: 1px solid var(--hh-edge);
+}
+.hh-card-empty {
+  display: grid; place-items: center; padding: 0 24px; box-sizing: border-box;
+  text-align: center; color: var(--hh-muted);
+}
+.hh-card-caption { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px 10px; }
+.hh-card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hh-card-meta { color: var(--hh-muted); font-size: 12px; }
+/* A tab out in a mini window: still listed, marked as away. */
+.hh-chip--away { opacity: 0.6; }
+.hh-chip--away .hh-title { font-style: italic; }
+.hh-bar--peek { padding: 4px; }
+.hh-return {
+  all: unset; display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px;
+  border-radius: 10px; cursor: pointer; font-weight: 600; white-space: nowrap;
+}
+.hh-return:hover { background: var(--hh-chip-hover); }
+.hh-return:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 1px; }
 /* Solid surface where blur is unavailable or the user asks for less transparency. */
 @supports not (backdrop-filter: blur(1px)) {
-  .hh-bar, .hh-pill, .hh-menu, .hh-drop-label { background: var(--hh-solid); }
+  .hh-bar, .hh-pill, .hh-menu, .hh-drop-label, .hh-card { background: var(--hh-solid); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .hh-bar, .hh-pill, .hh-menu, .hh-drop-label {
+  .hh-bar, .hh-pill, .hh-menu, .hh-drop-label, .hh-card {
     background: var(--hh-solid); backdrop-filter: none;
   }
 }

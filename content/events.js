@@ -42,6 +42,7 @@
     else if (action === 'close') h.onClose(tabIdOf(el));
     else if (action === 'new') h.onNew();
     else if (action === 'collapse' || action === 'expand') h.onToggleCollapse();
+    else if (action === 'return') h.onReturn();
   }
 
   /**

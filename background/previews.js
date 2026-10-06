@@ -140,7 +140,7 @@ function originOf(url) {
  * Scales a screenshot down to card size as a JPEG data: URL (about 25 KB).
  * @param {string} dataUrl
  */
-async function shrinkImage(dataUrl) {
+export async function shrinkImage(dataUrl) {
   const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
   const scale = Math.min(1, WIDTH_PX / bitmap.width);
   const canvas = new OffscreenCanvas(

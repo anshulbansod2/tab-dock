@@ -15,6 +15,7 @@ const ORDER = [
   'reorder',
   'menu',
   'dropzone',
+  'preview',
   'bar',
 ];
 const KEY = 'tabDock.collapsed';
@@ -354,6 +355,34 @@ describe('mountBar', () => {
     mounted = null;
     await flushPromises();
     expect(host.isConnected).toBe(false);
+  });
+
+  it('shows a hover card from the background and opens it live on click', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    runtime.sendMessage.mockImplementation(async (msg) =>
+      msg.type === 'hello'
+        ? snapshot
+        : msg.type === 'preview'
+          ? { image: 'data:image/jpeg;base64,x', at: Date.now() }
+          : undefined,
+    );
+    await flushPromises();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    q('.hh-tab[data-tab-id="2"]').dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+    const card = shadow().querySelector('.hh-card');
+    expect(card.querySelector('img').src).toBe('data:image/jpeg;base64,x');
+    card.click();
+    expect(actions()).toContainEqual(expect.objectContaining({ type: 'peek', tabId: 2 }));
+    vi.useRealTimers();
+  });
+
+  it('sends a peeked tab home from its Return button', async () => {
+    push({ ...snapshot, peek: { home: snapshot.group } });
+    await settle();
+    q('[data-action="return"]').click();
+    expect(actions()).toEqual([{ type: 'return' }]);
   });
 
   it('is not blocked by a page element that reuses our old id', () => {

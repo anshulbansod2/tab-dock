@@ -30,6 +30,7 @@ beforeEach(() => {
     onToggleCollapse: vi.fn(),
     onMove: vi.fn(),
     onMenu: vi.fn(),
+    onReturn: vi.fn(),
   };
   ns.bindEvents(mount, handlers);
   ns.render(mount, { snapshot, collapsed: false });
@@ -60,6 +61,12 @@ describe('mouse', () => {
     tab(3).querySelector('.hh-title').dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
     expect(handlers.onMenu).toHaveBeenCalledWith(3, { x: 40, y: 600 }, tab(3));
+  });
+
+  it("sends a peeked tab home from its mini window's Return button", () => {
+    ns.render(mount, { snapshot: { ...snapshot, peek: { home: null } }, collapsed: false });
+    q('[data-action="return"]').click();
+    expect(handlers.onReturn).toHaveBeenCalledOnce();
   });
 
   it('leaves right-clicks elsewhere on the dock alone', () => {

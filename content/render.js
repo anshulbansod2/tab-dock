@@ -15,12 +15,18 @@
     const previousScroll = mount.querySelector('.hh-tabs')?.scrollLeft;
     const root = document.createElement('div');
     root.className = 'hh-root';
-    root.append(view.collapsed ? ns.dom.buildPill(view) : ns.dom.buildBar(view));
+    root.append(dockFor(view));
     reuseFavicons(mount, root);
     mount.replaceChildren(root);
     restoreFocus(mount, focus);
-    if (!view.collapsed) restoreScroll(mount, previousScroll);
+    if (!view.collapsed && !view.snapshot.peek) restoreScroll(mount, previousScroll);
   };
+
+  /** @param {BarView} view - a peeked tab's dock is only ever its Return button */
+  function dockFor(view) {
+    if (view.snapshot.peek) return ns.dom.buildPeekBar(view);
+    return view.collapsed ? ns.dom.buildPill(view) : ns.dom.buildBar(view);
+  }
 
   /**
    * Moves already-decoded favicon <img>s from the previous render into the new tree when the

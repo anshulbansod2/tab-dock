@@ -84,6 +84,10 @@
     tabEl.type = 'button';
     if (tab.active) tabEl.setAttribute('aria-current', 'page');
     tabEl.setAttribute('aria-keyshortcuts', 'Delete');
+    if (tab.away) {
+      item.classList.add('hh-chip--away');
+      tabEl.setAttribute('aria-description', 'Open in a mini window');
+    }
     tabEl.tabIndex = focusable ? 0 : -1;
     tabEl.title = tab.title; // mouse tooltip for the visually truncated title
     tabEl.dataset.action = 'activate';
@@ -144,6 +148,22 @@
     return bar;
   }
 
+  /**
+   * A peeked tab's own dock, in its mini window: one button that puts it back.
+   * @param {BarView} view
+   */
+  function buildPeekBar({ snapshot }) {
+    const home = snapshot.peek?.home ?? null;
+    const bar = el('div', 'hh-bar hh-bar--peek');
+    bar.style.setProperty('--hh-group', ns.groupColor(home));
+    const back = el('button', 'hh-return');
+    back.type = 'button';
+    back.dataset.action = 'return';
+    back.append(el('span', 'hh-dot'), el('span', '', `Return to ${ns.groupLabel(home)}`));
+    bar.append(back);
+    return bar;
+  }
+
   /** @param {BarView} view */
   function buildPill({ snapshot }) {
     const count = snapshot.tabs.length;
@@ -161,5 +181,5 @@
     return pill;
   }
 
-  ns.dom = Object.freeze({ buildBar, buildPill });
+  ns.dom = Object.freeze({ buildBar, buildPill, buildPeekBar });
 })();
