@@ -2,7 +2,7 @@
 import { UNGROUPED_ID } from './constants.js';
 import { effectiveGroupId } from './tabModel.js';
 
-const KEY_PREFIX = 'peek:';
+const PEEKS_KEY = 'peeks';
 
 /**
  * Live peeks: a tab moved, as itself (page state, video, login intact), into a small popup
@@ -17,8 +17,8 @@ export function createPeeks({ api, store = api.storage.session }) {
    * @returns {Promise<PeekOrigin | null>}
    */
   async function originOf(tabId) {
-    const saved = (await store.get(KEY_PREFIX + tabId))[KEY_PREFIX + tabId];
-    return /** @type {PeekOrigin | undefined} */ (saved) ?? null;
+    const saved = (await store.get(PEEKS_KEY))[PEEKS_KEY];
+    return /** @type {PeekOrigin | undefined} */ (saved?.[tabId]) ?? null;
   }
 
   return {
@@ -31,12 +31,22 @@ export function createPeeks({ api, store = api.storage.session }) {
     async open(tabId, bounds) {
       const tab = await api.tabs.get(tabId);
       /** @type {PeekOrigin} */
-      const origin = { windowId: tab.windowId, index: tab.index, groupId: effectiveGroupId(tab) };
-      await store.set({ [KEY_PREFIX + tabId]: origin });
+      const origin = {
+        windowId: tab.windowId,
+        index: tab.index,
+        groupId: effectiveGroupId(tab),
+        pinned: tab.pinned,
+      };
+      const peeks = (await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {};
+      peeks[tabId] = origin;
+      await store.set({ [PEEKS_KEY]: peeks });
       try {
         await api.windows.create({ tabId, type: 'popup', ...bounds, focused: true });
       } catch (err) {
-        await store.remove(KEY_PREFIX + tabId);
+        const peeks = (await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {};
+        delete peeks[tabId];
+        if (Object.keys(peeks).length) await store.set({ [PEEKS_KEY]: peeks });
+        else await store.remove(PEEKS_KEY);
         throw err;
       }
     },
@@ -47,9 +57,13 @@ export function createPeeks({ api, store = api.storage.session }) {
       if (!origin) return;
       const { windowId, same } = await homeWindow(api, origin);
       await api.tabs.move(tabId, { windowId, index: same ? origin.index : -1 });
-      await store.remove(KEY_PREFIX + tabId);
+      const peeks = (await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {};
+      delete peeks[tabId];
+      if (Object.keys(peeks).length) await store.set({ [PEEKS_KEY]: peeks });
+      else await store.remove(PEEKS_KEY);
       if (same && origin.groupId !== UNGROUPED_ID && (await groupExists(api, origin.groupId)))
         await api.tabs.group({ groupId: origin.groupId, tabIds: tabId });
+      if (origin.pinned) await api.tabs.update(tabId, { pinned: true });
       if (windowId !== undefined) await api.windows.update(windowId, { focused: true });
     },
 
@@ -61,19 +75,21 @@ export function createPeeks({ api, store = api.storage.session }) {
 
     /** @returns {Promise<Map<number, PeekOrigin>>} */
     async all() {
-      const items = await store.get(null);
       return new Map(
-        Object.entries(items)
-          .filter(([key]) => key.startsWith(KEY_PREFIX))
-          .map(([key, origin]) => [
-            Number(key.slice(KEY_PREFIX.length)),
-            /** @type {PeekOrigin} */ (origin),
-          ]),
+        Object.entries((await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {}).map(([t, o]) => [
+          Number(t),
+          /** @type {PeekOrigin} */ (o),
+        ]),
       );
     },
 
     /** @param {number} tabId */
-    forget: (tabId) => store.remove(KEY_PREFIX + tabId),
+    async forget(tabId) {
+      const p = (await store.get(PEEKS_KEY))[PEEKS_KEY] ?? {};
+      delete p[tabId];
+      if (Object.keys(p).length) await store.set({ [PEEKS_KEY]: p });
+      else await store.remove(PEEKS_KEY);
+    },
   };
 }
 

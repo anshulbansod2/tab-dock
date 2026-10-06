@@ -27,7 +27,7 @@ describe('peeking a tab live', () => {
       ...BOUNDS,
       focused: true,
     });
-    expect(await peeks.originOf(2)).toEqual({ windowId: 1, index: 1, groupId: 10 });
+    expect(await peeks.originOf(2)).toEqual({ windowId: 1, index: 1, groupId: 10, pinned: false });
   });
 
   it('puts it back where it was, in its group, and focuses that window', async () => {
@@ -70,7 +70,9 @@ describe('peeking a tab live', () => {
 
   it('lists peeked tabs and forgets closed ones', async () => {
     await peeks.open(2, BOUNDS);
-    expect(await peeks.all()).toEqual(new Map([[2, { windowId: 1, index: 1, groupId: 10 }]]));
+    expect(await peeks.all()).toEqual(
+      new Map([[2, { windowId: 1, index: 1, groupId: 10, pinned: false }]]),
+    );
     await peeks.forget(2);
     expect(await peeks.all()).toEqual(new Map());
   });

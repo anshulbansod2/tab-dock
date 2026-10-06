@@ -60,6 +60,7 @@ interface PeekOrigin {
   windowId: number;
   index: number;
   groupId: number;
+  pinned: boolean;
 }
 
 /** A peek window's screen rectangle. */
