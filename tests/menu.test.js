@@ -50,18 +50,18 @@ const key = (k) =>
 describe('tab menu', () => {
   it("offers the window's other groups, a new group, leaving the group, and closing", () => {
     open();
-    expect(labels()).toEqual(['Read', 'New group', 'Remove from group', 'Close tab']);
+    expect(labels()).toEqual(['Read', 'New group…', 'Remove from group', 'Close tab']);
     expect(layer.querySelector('[role="menu"]').getAttribute('aria-label')).toBe('Docs');
   });
 
   it('offers every group but no "Remove from group" for an ungrouped tab', () => {
     open(ungrouped);
-    expect(labels()).toEqual(['Work', 'Read', 'New group', 'Close tab']);
+    expect(labels()).toEqual(['Work', 'Read', 'New group…', 'Close tab']);
   });
 
   it.each([
     ['Read', { type: 'regroup', tabId: 1, groupId: 20 }],
-    ['New group', { type: 'newgroup', tabId: 1 }],
+    ['New group…', { type: 'newgroup', tabId: 1 }],
     ['Remove from group', { type: 'regroup', tabId: 1, groupId: -1 }],
     ['Close tab', { type: 'close', tabId: 1 }],
   ])('"%s" sends %j and closes the menu', (text, message) => {

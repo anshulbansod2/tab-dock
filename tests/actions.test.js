@@ -148,7 +148,11 @@ describe('handleAction', () => {
 
     it('names and colours a new group when given', async () => {
       api.tabs.group.mockResolvedValueOnce(40);
-      await handleAction({ type: 'newgroup', tabId: 4, title: 'Trip', color: 'green' }, client, api);
+      await handleAction(
+        { type: 'newgroup', tabId: 4, title: 'Trip', color: 'green' },
+        client,
+        api,
+      );
       expect(api.tabGroups.update).toHaveBeenCalledWith(40, { title: 'Trip', color: 'green' });
     });
 

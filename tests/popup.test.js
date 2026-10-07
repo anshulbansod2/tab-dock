@@ -9,7 +9,10 @@ let close;
 let popup;
 
 beforeAll(async () => {
-  await loadContent('core', 'format', 'styles', 'dom', 'render', 'events', 'view', 'switcher');
+  await loadContent(
+    ...['core', 'format', 'styles', 'dom', 'render', 'events', 'menu', 'groupedit'],
+    ...['view', 'switcher'],
+  );
   ({ startPopup } = await import('../popup/popup.js'));
 });
 
@@ -122,6 +125,20 @@ describe('toolbar popup', () => {
     await settle();
     expect(q('.hh-pill')).toBeNull();
     expect(titles()).toEqual(['Settings', 'Docs']);
+  });
+
+  it('renames the group from a right-click on its name', async () => {
+    q('.hh-label').dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    const name = q('.hh-editor-name');
+    expect(name.value).toBe('Work');
+    name.value = 'Focus';
+    name.dispatchEvent(new Event('input'));
+    name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await flushPromises();
+    expect(api.tabGroups.update).toHaveBeenCalledWith(10, { title: 'Focus' });
+    expect(close).not.toHaveBeenCalled();
   });
 
   it('stops following tab changes once closed', async () => {

@@ -52,6 +52,8 @@ interface BarHandlers {
   onMenu(tabId: number, point: { x: number; y: number }, tab: HTMLElement): void;
   /** A peeked tab's mini-window dock: put it back. */
   onReturn(): void;
+  /** The group name was right-clicked (or Shift+F10'd): edit its name and colour. */
+  onEditGroup(point: { x: number; y: number }, label: HTMLElement): void;
 }
 
 interface MenuOpenOptions {
@@ -61,6 +63,24 @@ interface MenuOpenOptions {
   snapshot: Snapshot;
   /** Focused again when the menu closes from the keyboard or after a choice. */
   returnFocus: HTMLElement | null;
+}
+
+interface GroupEditOptions {
+  /** Set to rename and recolour that group; unset to make a new one. */
+  group?: BarGroup;
+  /** The tab a new group starts with. */
+  tabId?: number;
+  /** Colours already in use, so a new group is suggested a free one. */
+  taken?: string[];
+  point: { x: number; y: number };
+  returnFocus: HTMLElement | null;
+}
+
+interface GroupEditor {
+  open(options: GroupEditOptions): void;
+  close(): void;
+  isOpen(): boolean;
+  dispose(): void;
 }
 
 interface GroupMenu {
@@ -217,6 +237,12 @@ interface TabDockNamespace {
     cancelFrame?: (handle: number) => void,
   ): BarViewState;
   bindSwitcher(deps: SwitcherDeps): { refresh(): void; dispose(): void };
+  placeMenu(menu: HTMLElement, point: { x: number; y: number }, win: Window): void;
+  createGroupEditor(options: {
+    layer: HTMLElement;
+    win: Window;
+    send(message: ClientMessage): void;
+  }): GroupEditor;
   mountBar(options: MountOptions): MountedBar | null;
 }
 

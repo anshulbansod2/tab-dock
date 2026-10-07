@@ -1,5 +1,6 @@
 // The checks: each opens a live window from a hover card and measures what Chrome really did.
 import { sleep } from './cdp.js';
+import { namesCheck } from './names.js';
 import { popupCheck } from './popup.js';
 import { switcherCheck } from './switcher.js';
 
@@ -200,6 +201,7 @@ export const CHECKS = [
     },
   ]),
   ['pointing along the group swatches holds them still, and a click switches group', switcherCheck],
+  ['naming groups from the dock: rename by its name, New group… from a tab', namesCheck],
   ['the toolbar popup is the dock on a chrome:// page', popupCheck],
   [
     'side panel open',

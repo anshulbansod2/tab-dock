@@ -14,6 +14,7 @@ const ORDER = [
   'drag',
   'reorder',
   'menu',
+  'groupedit',
   'dropzone',
   'preview',
   'view',

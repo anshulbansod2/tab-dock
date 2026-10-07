@@ -73,8 +73,7 @@
       onClose: (tabId) => port.send({ type: MSG.CLOSE, tabId }),
       onNew: () => port.send({ type: MSG.NEW }),
       onReturn: () => port.send({ type: MSG.RETURN }),
-      onMove: moves.onMove,
-      onMenu: moves.onMenu,
+      ...moves.handlers,
       onToggleCollapse: () =>
         void persistCollapsed(storage, !view.isCollapsed(), view.setCollapsed),
     });
@@ -191,18 +190,10 @@
    *   request: Connection['request'] }} deps
    */
   function bindTabMoves({ mount, layer, win, view, send, request }) {
-    const { cards, preview } = bindCards({ mount, layer, win, request, send });
+    const { preview, switcher } = bindLooking({ mount, layer, win, view, request, send });
     const fresh = ns.keepPreviewFresh({ doc: layer.ownerDocument, send });
-    const areas = [mount, layer, cards]; // leaving all of them ends browsing another group
-    const switcher = ns.bindSwitcher({
-      mount,
-      areas,
-      view,
-      request,
-      send,
-      doc: cards.ownerDocument,
-    });
-    const menu = ns.createGroupMenu({ layer, win, send });
+    const edits = bindGroupEdits({ mount, layer, win, view, send });
+    const menu = ns.createGroupMenu({ layer, win, send: edits.route });
     const drop = ns.createGroupDrop({ layer });
     /** @param {number} tabId @param {number} toIndex */
     const onMove = (tabId, toIndex) => send({ type: MSG.MOVE, tabId, toIndex });
@@ -216,16 +207,20 @@
       onLift: (tabId) => showDropTargets({ mount, view, drop, tabId }),
       onPick: drop.pick,
       onLower: drop.hide,
-      onDrop: send,
+      onDrop: edits.route,
     });
     return {
-      onMove,
       refresh: switcher.refresh,
-      /** @type {BarHandlers['onMenu']} */
-      onMenu(tabId, point, tab) {
-        preview.hide();
-        const snapshot = view.current();
-        if (snapshot) menu.open({ tabId, point, snapshot, returnFocus: tab });
+      /** @type {Pick<BarHandlers, 'onMove' | 'onMenu' | 'onEditGroup'>} */
+      handlers: {
+        onMove,
+        onEditGroup: edits.onEditGroup,
+        onMenu(tabId, point, tab) {
+          preview.hide();
+          edits.remember(point);
+          const snapshot = view.current();
+          if (snapshot) menu.open({ tabId, point, snapshot, returnFocus: tab });
+        },
       },
       dispose() {
         switcher.dispose();
@@ -233,18 +228,20 @@
         fresh.dispose();
         reorder.dispose();
         menu.dispose();
+        edits.dispose();
         drop.hide();
       },
     };
   }
 
   /**
-   * The hover card, in a layer of its own (the menu and drop targets replace their layer's
-   * children), after the menu layer so it paints above it.
-   * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window,
+   * Looking without going: the hover card, in a layer of its own (the menu and drop targets
+   * replace their layer's children) after the menu layer so it paints above it, and the group
+   * switcher, which ends once the pointer leaves the dock and both layers.
+   * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window, view: BarViewState,
    *   send: (message: ClientMessage) => void, request: Connection['request'] }} deps
    */
-  function bindCards({ mount, layer, win, request, send }) {
+  function bindLooking({ mount, layer, win, view, request, send }) {
     const cards = layer.ownerDocument.createElement('div');
     cards.className = 'hh-layer';
     layer.after(cards);
@@ -255,7 +252,58 @@
       request,
       onPeek: (tabId, measures) => send({ type: MSG.PEEK, tabId, ...measures }),
     });
-    return { cards, preview };
+    const areas = [mount, layer, cards];
+    const doc = cards.ownerDocument;
+    const switcher = ns.bindSwitcher({ mount, areas, view, request, send, doc });
+    return { preview, switcher };
+  }
+
+  /**
+   * Naming groups: the group name's editor, and a name asked for before any new group is made
+   * (from the tab menu or by dropping a chip on the new-group target).
+   * @param {{ mount: HTMLElement, layer: HTMLElement, win: Window, view: BarViewState,
+   *   send: (message: ClientMessage) => void }} deps
+   */
+  function bindGroupEdits({ mount, layer, win, view, send }) {
+    const editor = ns.createGroupEditor({ layer, win, send });
+    /** @type {{ x: number, y: number } | null} where the tab menu was opened */
+    let menuPoint = null;
+    /**
+     * Level with the pointer (else the dock's middle), resting on the dock's top edge: the
+     * editor opens above that, never over the dock.
+     * @param {{ x: number, y: number } | null} near
+     */
+    const aboveDock = (near) => {
+      const dock = mount.querySelector('.hh-bar')?.getBoundingClientRect();
+      if (!dock) return near ?? { x: 0, y: 0 };
+      return { x: near?.x ?? dock.left + dock.width / 2, y: dock.top };
+    };
+    /** @param {ClientMessage} message */
+    function route(message) {
+      if (message.type !== MSG.NEW_GROUP || message.title !== undefined) return send(message);
+      const point = aboveDock(menuPoint);
+      menuPoint = null;
+      const tabId = message.tabId;
+      const returnFocus = mount.querySelector(`.hh-tab[data-tab-id="${tabId}"]`);
+      const taken = (view.current()?.groups ?? []).map((group) => group.color);
+      editor.open({
+        tabId,
+        taken,
+        point,
+        returnFocus: /** @type {HTMLElement | null} */ (returnFocus),
+      });
+    }
+    return {
+      route,
+      /** @param {{ x: number, y: number }} point */
+      remember: (point) => (menuPoint = point),
+      /** @type {BarHandlers['onEditGroup']} */
+      onEditGroup(point, label) {
+        const group = view.current()?.group;
+        if (group) editor.open({ group, point: aboveDock(point), returnFocus: label });
+      },
+      dispose: editor.dispose,
+    };
   }
 
   /**

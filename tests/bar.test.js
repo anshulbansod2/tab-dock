@@ -14,6 +14,7 @@ const ORDER = [
   'drag',
   'reorder',
   'menu',
+  'groupedit',
   'dropzone',
   'preview',
   'view',
@@ -264,6 +265,61 @@ describe('mountBar', () => {
     expect(shadow().querySelector('[role="menu"]')).toBeNull();
   });
 
+  it("renames the dock's group from a right-click on its name", async () => {
+    await settle();
+    q('.hh-label').dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    const name = q('.hh-editor-name');
+    expect(name.value).toBe('Work');
+    name.value = 'Deep work';
+    name.dispatchEvent(new Event('input'));
+    name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(actions()).toEqual([{ type: 'editgroup', groupId: 10, title: 'Deep work' }]);
+  });
+
+  it('opens the editor above the dock, never over it', async () => {
+    await settle();
+    const place = vi.spyOn(ns, 'placeMenu');
+    q('.hh-bar').getBoundingClientRect = () =>
+      DOMRect.fromRect({ x: 300, y: 740, width: 600, height: 44 });
+    q('.hh-label').dispatchEvent(
+      new MouseEvent('contextmenu', {
+        clientX: 330,
+        clientY: 762,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(place).toHaveBeenCalledWith(q('.hh-editor'), { x: 330, y: 740 }, window);
+  });
+
+  it('has nothing to rename for the ungrouped tabs', async () => {
+    push({ ...snapshot, group: null });
+    await settle();
+    q('.hh-label').dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    expect(q('.hh-editor')).toBeNull();
+  });
+
+  it('asks for a name before making a group from the tab menu', async () => {
+    await settle();
+    q('.hh-tab[data-tab-id="2"]').dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    [...shadow().querySelectorAll('[role="menuitem"]')]
+      .find((el) => el.textContent === 'New group…')
+      .click();
+    expect(actions()).toEqual([]);
+    const name = q('.hh-editor-name');
+    name.value = 'Trip';
+    name.dispatchEvent(new Event('input'));
+    name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    // Work is blue and Read red, so the new group is offered the next free colour.
+    expect(actions()).toEqual([{ type: 'newgroup', tabId: 2, title: 'Trip', color: 'yellow' }]);
+  });
+
   it('shows group targets for a lifted chip and sends the drop', async () => {
     mounted.unmount();
     let callbacks;
@@ -288,6 +344,12 @@ describe('mountBar', () => {
     callbacks.onLower();
     expect(actions()).toEqual([{ type: 'regroup', tabId: 2, groupId: 20 }]);
     expect(shadow().querySelector('.hh-drop-target')).toBeNull();
+    callbacks.onLift(2);
+    const newGroup = callbacks.onPick(at(targets[2]), y); // onto "New group": name it first
+    callbacks.onLower(); // as on a real drop, the targets go before the drop is acted on
+    callbacks.onDrop(newGroup);
+    expect(actions()).toHaveLength(1);
+    expect(q('.hh-editor').getAttribute('aria-label')).toBe('New group');
   });
 
   it('puts itself back if the page removes it', async () => {

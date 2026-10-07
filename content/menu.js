@@ -68,6 +68,8 @@
   /** @param {Event} event */
   const stop = (event) => event.stopPropagation();
 
+  ns.placeMenu = (menu, point, win) => place(menu, point, win);
+
   /**
    * @param {number} tabId
    * @param {Snapshot} snapshot
@@ -79,7 +81,7 @@
     const items = snapshot.groups
       .filter((group) => group.id !== own)
       .map((group) => ({ label: group.title, group, message: regroup(tabId, group.id) }));
-    items.push({ label: 'New group', message: { type: MSG.NEW_GROUP, tabId } });
+    items.push({ label: 'New group…', message: { type: MSG.NEW_GROUP, tabId } });
     if (snapshot.group)
       items.push({ label: 'Remove from group', message: regroup(tabId, UNGROUPED_ID) });
     items.push({ label: 'Close tab', message: { type: MSG.CLOSE, tabId } });
@@ -151,7 +153,8 @@
   }
 
   /**
-   * Opens above the pointer (the dock usually sits at the bottom), kept inside the window.
+   * Opens above the pointer (the dock usually sits at the bottom), kept inside the window. Also
+   * places the group editor.
    * @param {HTMLElement} menu
    * @param {{ x: number, y: number }} point
    * @param {Window} win

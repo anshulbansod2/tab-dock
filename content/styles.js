@@ -174,6 +174,27 @@
    close button on the right. Inset, as the scrolling strip clips anything outside a chip.
    (.hh-tab's all: unset already drops the browser's own ring.) */
 .hh-chip:has(> .hh-tab:focus-visible) { outline: 2px solid var(--hh-focus); outline-offset: -2px; }
+/* Group editor: a name field over Chrome's nine colours. */
+.hh-editor { width: 244px; gap: 10px; padding: 10px; }
+.hh-editor-name {
+  all: unset; box-sizing: border-box; height: 32px; padding: 0 10px; border-radius: 8px;
+  color: var(--hh-fg); background: var(--hh-chip); border: 1px solid var(--hh-edge);
+  font-weight: 500; user-select: text;
+}
+.hh-editor-name::placeholder { color: var(--hh-muted); font-weight: 400; }
+.hh-editor-name:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: -1px; }
+.hh-colors { display: flex; justify-content: space-between; padding: 4px; }
+.hh-color {
+  all: unset; box-sizing: border-box; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--hh-swatch); cursor: pointer;
+}
+.hh-color[aria-checked='true'] { box-shadow: 0 0 0 2px var(--hh-solid), 0 0 0 4px var(--hh-fg); }
+.hh-color:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 4px; }
+.hh-editor-go {
+  all: unset; align-self: flex-end; height: 28px; padding: 0 12px; border-radius: 8px;
+  cursor: pointer; font-weight: 600; color: var(--hh-solid); background: var(--hh-focus);
+}
+.hh-editor-go:focus-visible { outline: 2px solid var(--hh-focus); outline-offset: 2px; }
 /* Menus and drop targets live in a layer over the whole window; only their own boxes take
    pointer events. */
 .hh-layer { position: fixed; inset: 0; pointer-events: none; }
