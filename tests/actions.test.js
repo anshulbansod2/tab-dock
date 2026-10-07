@@ -146,6 +146,26 @@ describe('handleAction', () => {
       });
     });
 
+    it('names and colours a new group when given', async () => {
+      api.tabs.group.mockResolvedValueOnce(40);
+      await handleAction({ type: 'newgroup', tabId: 4, title: 'Trip', color: 'green' }, client, api);
+      expect(api.tabGroups.update).toHaveBeenCalledWith(40, { title: 'Trip', color: 'green' });
+    });
+
+    it("renames and recolours a group in the sender's window", async () => {
+      await handleAction({ type: 'editgroup', groupId: 20, title: 'Reading' }, client, api);
+      expect(api.tabGroups.update).toHaveBeenCalledWith(20, { title: 'Reading' });
+      await handleAction({ type: 'editgroup', groupId: 20, color: 'cyan' }, client, api);
+      expect(api.tabGroups.update).toHaveBeenLastCalledWith(20, { color: 'cyan' });
+    });
+
+    it('will not edit a group in another window', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      await handleAction({ type: 'editgroup', groupId: 30, title: 'x' }, client, api);
+      expect(api.tabGroups.update).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalled();
+    });
+
     it.each([
       ['a group in another window', { type: 'regroup', tabId: 2, groupId: 30 }],
       ['a tab in another window', { type: 'regroup', tabId: 3, groupId: 20 }],

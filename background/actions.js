@@ -26,6 +26,8 @@ export async function handleAction(msg, client, api, peeks) {
       await moveWithinGroup(msg, client.tabId, api);
     } else if (msg.type === MSG.REGROUP || msg.type === MSG.NEW_GROUP) {
       await changeGroup(msg, client.tabId, api);
+    } else if (msg.type === MSG.EDIT_GROUP) {
+      await editGroup(msg, client.windowId, api);
     } else {
       await actOnTab(msg, client.tabId, api);
     }
@@ -151,7 +153,12 @@ async function changeGroup(msg, senderTabId, api) {
   }
   if (target.pinned) return; // Chrome can't group pinned tabs
   if (msg.type === MSG.NEW_GROUP) {
-    await api.tabs.group({ tabIds: msg.tabId, createProperties: { windowId: target.windowId } });
+    const groupId = await api.tabs.group({
+      tabIds: msg.tabId,
+      createProperties: { windowId: target.windowId },
+    });
+    const look = lookOf(msg);
+    if (look) await api.tabGroups.update(groupId, look);
   } else if (msg.groupId === UNGROUPED_ID) {
     await api.tabs.ungroup(msg.tabId);
   } else if ((await api.tabGroups.get(msg.groupId)).windowId !== target.windowId) {
@@ -159,4 +166,32 @@ async function changeGroup(msg, senderTabId, api) {
   } else {
     await api.tabs.group({ groupId: msg.groupId, tabIds: msg.tabId });
   }
+}
+
+/**
+ * Renames or recolours a group of the sender's window.
+ * @param {Extract<ClientMessage, { type: 'editgroup' }>} msg
+ * @param {number} windowId - the sender's
+ * @param {typeof chrome} api
+ */
+async function editGroup(msg, windowId, api) {
+  if ((await api.tabGroups.get(msg.groupId)).windowId !== windowId) {
+    logger.warn('ignored edit of a group in another window');
+    return;
+  }
+  const look = lookOf(msg);
+  if (look) await api.tabGroups.update(msg.groupId, look);
+}
+
+/**
+ * The name and colour a message sets, if any.
+ * @param {{ title?: string, color?: chrome.tabGroups.Color }} msg
+ * @returns {{ title?: string, color?: chrome.tabGroups.Color } | null}
+ */
+function lookOf({ title, color }) {
+  /** @type {{ title?: string, color?: chrome.tabGroups.Color }} */
+  const look = {};
+  if (title !== undefined) look.title = title;
+  if (color !== undefined) look.color = color;
+  return Object.keys(look).length > 0 ? look : null;
 }

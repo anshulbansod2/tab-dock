@@ -36,6 +36,22 @@ describe('parseClientMessage', () => {
       { type: 'newgroup', tabId: 3 },
     ],
     [
+      { type: 'newgroup', tabId: 3, title: '  Trip  ', color: 'green', x: 1 },
+      { type: 'newgroup', tabId: 3, title: 'Trip', color: 'green' },
+    ],
+    [
+      { type: 'newgroup', tabId: 3, title: '' },
+      { type: 'newgroup', tabId: 3, title: '' },
+    ],
+    [
+      { type: 'editgroup', groupId: 20, title: 'Reading' },
+      { type: 'editgroup', groupId: 20, title: 'Reading' },
+    ],
+    [
+      { type: 'editgroup', groupId: 20, color: 'red' },
+      { type: 'editgroup', groupId: 20, color: 'red' },
+    ],
+    [
       { type: 'preview', tabId: 3 },
       { type: 'preview', tabId: 3 },
     ],
@@ -75,6 +91,12 @@ describe('parseClientMessage', () => {
     { type: 'regroup', tabId: 3, groupId: -2 },
     { type: 'regroup', tabId: 3, groupId: '10' },
     { type: 'newgroup' },
+    { type: 'newgroup', tabId: 3, color: 'magenta' },
+    { type: 'newgroup', tabId: 3, title: 7 },
+    { type: 'newgroup', tabId: 3, title: 'x'.repeat(101) },
+    { type: 'editgroup', groupId: 20 },
+    { type: 'editgroup', groupId: -1, title: 'x' },
+    { type: 'editgroup', groupId: 20, color: 'magenta' },
     { type: 'preview' },
     { type: 'group' },
     { type: 'group', groupId: -2 },

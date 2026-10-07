@@ -15,6 +15,7 @@ interface ContentConstants {
     RETURN: 'return';
     SEEN: 'seen';
     GROUP: 'group';
+    EDIT_GROUP: 'editgroup';
   }>;
   HOST_TAG: string;
   STORAGE_KEY: string;
