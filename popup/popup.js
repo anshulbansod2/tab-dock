@@ -9,7 +9,7 @@ import { buildGroupView, buildSnapshot } from '../background/tabModel.js';
 
 /** What the popup's dock can do; the rest needs a page under the dock. */
 /** @type {Set<string>} */
-const ACTIONS = new Set([MSG.ACTIVATE, MSG.CLOSE, MSG.NEW, MSG.MOVE]);
+const ACTIONS = new Set([MSG.ACTIVATE, MSG.CLOSE, MSG.NEW, MSG.MOVE, MSG.EDIT_GROUP]);
 const REFRESH_MS = 50; // a burst of tab events (closing several tabs) costs one rebuild
 
 /** In the popup the dock is the whole page: no glass over a page, no collapsing. */
@@ -20,7 +20,10 @@ html, body { margin: 0; }
 body { width: 640px; color-scheme: light dark; background: light-dark(#f3f4f6, #26272b); }
 .hh-popup .hh-root { padding: 8px; }
 .hh-popup .hh-bar { max-width: none; box-shadow: none; }
-.hh-popup .hh-label { pointer-events: none; }
+.hh-popup .hh-label { cursor: default; }
+/* The group editor joins the page flow below the dock, so the popup grows to fit it. */
+.hh-popup-layer { position: static; }
+.hh-popup-layer .hh-editor { position: static; width: auto; margin: 0 8px 8px; }
 `;
 
 /**
@@ -37,7 +40,9 @@ export async function startPopup({ api, doc, close, favicons = createFavicons({ 
   const style = doc.createElement('style');
   style.textContent = ns.styles + POPUP_CSS;
   doc.head.append(style);
-  doc.body.append(mount);
+  const layer = doc.createElement('div');
+  layer.className = 'hh-layer hh-popup-layer';
+  doc.body.append(mount, layer);
   const view = ns.createView(mount);
   view.setCollapsed(false);
   const state = createState({ api, favicons });
@@ -58,7 +63,7 @@ export async function startPopup({ api, doc, close, favicons = createFavicons({ 
     send,
     doc,
   });
-  ns.bindEvents(mount, handlersFor(send));
+  const editor = bindDock({ ns, mount, layer, view, send, doc });
   const load = async () => {
     const snapshot = await state.snapshot();
     if (!snapshot) return close(); // no tab to show a dock for
@@ -71,6 +76,7 @@ export async function startPopup({ api, doc, close, favicons = createFavicons({ 
   return {
     dispose() {
       unfollow();
+      editor.dispose();
       switcher.dispose();
       view.dispose();
     },
@@ -107,7 +113,26 @@ function createState({ api, favicons }) {
 }
 
 /**
- * The dock's handlers, minus what needs a page under it: collapsing, the tab menu, Return.
+ * The dock's clicks and keys, with the group editor in the popup's layer.
+ * @param {{ ns: TabDockNamespace, mount: HTMLElement, layer: HTMLElement, view: BarViewState,
+ *   send: (msg: ClientMessage) => void, doc: Document }} deps
+ * @returns {GroupEditor}
+ */
+function bindDock({ ns, mount, layer, view, send, doc }) {
+  const editor = ns.createGroupEditor({ layer, win: doc.defaultView ?? window, send });
+  ns.bindEvents(mount, {
+    ...handlersFor(send),
+    onEditGroup(point, label) {
+      const group = view.current()?.group;
+      if (group) editor.open({ group, point, returnFocus: label });
+    },
+  });
+  return editor;
+}
+
+/**
+ * The dock's handlers, minus what needs a page under it: collapsing, the tab menu, Return
+ * (group editing is added by the caller, which owns the editor).
  * @param {(msg: ClientMessage) => void} send
  * @returns {BarHandlers}
  */
@@ -121,6 +146,7 @@ function handlersFor(send) {
     onToggleCollapse: none,
     onMenu: none,
     onReturn: none,
+    onEditGroup: none,
   };
 }
 

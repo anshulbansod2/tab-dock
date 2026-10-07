@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Dock",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A horizontal quick-switch bar for the tabs in your current Chrome tab group.",
   "minimum_chrome_version": "123",
   "permissions": ["tabs", "tabGroups", "storage", "sessions", "scripting", "favicon"],
@@ -42,6 +42,7 @@
         "content/drag.js",
         "content/reorder.js",
         "content/menu.js",
+        "content/groupedit.js",
         "content/dropzone.js",
         "content/preview.js",
         "content/view.js",

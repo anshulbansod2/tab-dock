@@ -1,5 +1,5 @@
 // @ts-check
-import { MSG, UNGROUPED_ID } from './constants.js';
+import { GROUP_COLORS, GROUP_TITLE_MAX, MSG, UNGROUPED_ID } from './constants.js';
 
 /**
  * Narrows an untrusted port message to a ClientMessage; unknown fields are dropped.
@@ -19,8 +19,36 @@ export function parseClientMessage(raw) {
   if (type === MSG.MOVE && isTabId(tabId) && isTabId(toIndex)) return { type, tabId, toIndex };
   if (type === MSG.REGROUP && isTabId(tabId) && (isTabId(groupId) || groupId === UNGROUPED_ID))
     return { type, tabId, groupId };
-  if (type === MSG.NEW_GROUP && isTabId(tabId)) return { type, tabId };
+  if (type === MSG.NEW_GROUP && isTabId(tabId)) {
+    const look = groupLook(raw);
+    return look && { type, tabId, ...look };
+  }
+  if (type === MSG.EDIT_GROUP && isTabId(groupId)) {
+    const look = groupLook(raw);
+    return look && Object.keys(look).length > 0 ? { type, groupId, ...look } : null;
+  }
   return null;
+}
+
+/**
+ * A group's name and colour, each optional: a name trimmed and at most GROUP_TITLE_MAX long,
+ * a colour Chrome knows. Null if either is present but invalid.
+ * @param {object} raw
+ * @returns {{ title?: string, color?: chrome.tabGroups.Color } | null}
+ */
+function groupLook(raw) {
+  const { title, color } = /** @type {Record<string, unknown>} */ (raw);
+  /** @type {{ title?: string, color?: chrome.tabGroups.Color }} */
+  const look = {};
+  if (title !== undefined) {
+    if (typeof title !== 'string' || title.trim().length > GROUP_TITLE_MAX) return null;
+    look.title = title.trim();
+  }
+  if (color !== undefined) {
+    if (typeof color !== 'string' || !GROUP_COLORS.includes(color)) return null;
+    look.color = /** @type {chrome.tabGroups.Color} */ (color);
+  }
+  return look;
 }
 
 /**

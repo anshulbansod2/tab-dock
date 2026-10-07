@@ -79,11 +79,18 @@
   }
 
   /**
-   * Right-click on a tab chip opens the dock's tab menu in place of the page's.
+   * Right-click on a tab chip opens the dock's tab menu in place of the page's; on the group
+   * name, the group's name-and-colour editor.
    * @param {MouseEvent} event
    * @param {BarHandlers} h
    */
   function onContextMenu(event, h) {
+    const label = closest(event, '.hh-label');
+    if (label instanceof HTMLElement) {
+      event.preventDefault();
+      h.onEditGroup({ x: event.clientX, y: event.clientY }, label);
+      return;
+    }
     const tab = closest(event, '.hh-chip')?.querySelector('.hh-tab');
     if (!(tab instanceof HTMLElement)) return;
     event.preventDefault();
@@ -101,6 +108,13 @@
   function onKeyDown(event, h) {
     // The bar owns the keyboard while focused; don't let the page's shortcuts see it.
     stop(event);
+    const label = closest(event, '.hh-label');
+    if (label instanceof HTMLElement && isMenuKey(event)) {
+      event.preventDefault();
+      const box = label.getBoundingClientRect();
+      h.onEditGroup({ x: box.left, y: box.top }, label);
+      return;
+    }
     const tab = closest(event, '.hh-tab');
     if (!(tab instanceof HTMLElement)) return;
     if (event.altKey && event.shiftKey) {

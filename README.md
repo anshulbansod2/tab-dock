@@ -23,7 +23,7 @@ Tabs that were already open get the bar the first time you switch to them — no
 - Drag the group name (or the pill) to move the dock anywhere; drop it near the bottom centre
   to snap it back. The spot is the same on every site.
 - Drag a chip sideways to reorder the group's tabs (Chrome's own tab strip follows).
-- Move a tab to another group: right-click its chip for **Move to group**, **New group**,
+- Move a tab to another group: right-click its chip for **Move to group**, **New group…**,
   **Remove from group** or **Close tab** — or drag the chip up off the dock and drop it on a
   group's dot.
 - Hover a chip and a card grows out of the dock showing that tab as you last saw it (the tab
@@ -32,6 +32,8 @@ Tabs that were already open get the bar the first time you switch to them — no
   window puts it back where it was. Chrome can't keep that window on top, so clicking back
   into the main window also puts the tab back, the way a popover closes. Closing the mini window
   brings the tab back to its old place too, history and all.
+- Name groups from the dock: right-click the group name (or press Shift+F10 on it) to rename
+  it or pick one of Chrome's colours. **New group…** on a tab asks for a name and colour first.
 - Switch groups from the dock: each group has a dot in its Chrome colour at the left end (a
   dashed one for ungrouped tabs). Move the pointer onto a dot to see that group's tabs, then
   click one, or click the dot for the tab you last used there. Leave the dock, press Esc or

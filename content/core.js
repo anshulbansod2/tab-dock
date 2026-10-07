@@ -19,6 +19,7 @@
       RETURN: /** @type {const} */ ('return'),
       SEEN: /** @type {const} */ ('seen'),
       GROUP: /** @type {const} */ ('group'),
+      EDIT_GROUP: /** @type {const} */ ('editgroup'),
     }),
     /** Custom tag (not an id) so page markup can't collide with or block the bar. */
     HOST_TAG: 'tab-dock-bar',

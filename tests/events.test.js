@@ -31,6 +31,7 @@ beforeEach(() => {
     onMove: vi.fn(),
     onMenu: vi.fn(),
     onReturn: vi.fn(),
+    onEditGroup: vi.fn(),
   };
   ns.bindEvents(mount, handlers);
   ns.render(mount, { snapshot, collapsed: false });
@@ -215,6 +216,30 @@ describe('keyboard', () => {
     key(tab(1), 'ArrowLeft', move);
     key(tab(3), 'ArrowRight', move);
     expect(handlers.onMove).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens the group's editor on a right-click of its name, instead of the page's menu", () => {
+    const label = q('.hh-label');
+    const event = new MouseEvent('contextmenu', {
+      clientX: 40,
+      clientY: 700,
+      bubbles: true,
+      cancelable: true,
+    });
+    label.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(handlers.onEditGroup).toHaveBeenCalledWith({ x: 40, y: 700 }, label);
+  });
+
+  it.each([
+    ['the menu key', 'ContextMenu', {}],
+    ['Shift+F10', 'F10', { shiftKey: true }],
+  ])("opens the group's editor with %s on its name", (_name, k, modifiers) => {
+    const label = q('.hh-label');
+    label.getBoundingClientRect = () => ({ left: 12, top: 690, width: 90 });
+    expect(key(label, k, modifiers).defaultPrevented).toBe(true);
+    expect(handlers.onEditGroup).toHaveBeenCalledWith({ x: 12, y: 690 }, label);
+    expect(handlers.onMenu).not.toHaveBeenCalled();
   });
 
   it("does not move another group's tab while the switcher shows it", () => {

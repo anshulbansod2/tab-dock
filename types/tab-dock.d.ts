@@ -46,7 +46,10 @@ type ClientMessage =
   | { type: 'move'; tabId: number; toIndex: number }
   /** groupId -1 takes the tab out of its group. */
   | { type: 'regroup'; tabId: number; groupId: number }
-  | { type: 'newgroup'; tabId: number }
+  /** Optionally named and coloured. */
+  | { type: 'newgroup'; tabId: number; title?: string; color?: chrome.tabGroups.Color }
+  /** Renames or recolours a group of the sender's window (at least one is set). */
+  | { type: 'editgroup'; groupId: number; title?: string; color?: chrome.tabGroups.Color }
   /** Asks for a group's tabs (replied to with a GroupView); -1 is the ungrouped tabs. */
   | { type: 'group'; groupId: number }
   /** Asks for the tab's hover-card screenshot (replied to, like hello). */

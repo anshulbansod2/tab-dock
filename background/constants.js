@@ -15,12 +15,27 @@ export const MSG = Object.freeze({
   RETURN: 'return',
   SEEN: 'seen',
   GROUP: 'group',
+  EDIT_GROUP: 'editgroup',
 });
 
 /** Mirrors chrome.tabGroups.TAB_GROUP_ID_NONE so pure modules need no chrome global. */
 export const UNGROUPED_ID = -1;
 export const DEFAULT_GROUP_TITLE = 'Group';
 export const DEFAULT_GROUP_COLOR = 'grey';
+/** chrome.tabGroups.Color values. */
+export const GROUP_COLORS = Object.freeze([
+  'grey',
+  'blue',
+  'red',
+  'yellow',
+  'green',
+  'pink',
+  'purple',
+  'cyan',
+  'orange',
+]);
+/** Longer names are cut off in the tab strip anyway; the cap keeps messages small. */
+export const GROUP_TITLE_MAX = 100;
 export const UNTITLED_TAB = 'Untitled';
 export const BROADCAST_DEBOUNCE_MS = 50;
 
