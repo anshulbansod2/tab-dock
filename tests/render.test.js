@@ -215,6 +215,12 @@ describe('styles', () => {
     expect(ns.styles).not.toMatch(/animation:/);
   });
 
+  it("spaces the group editor itself, not with the menu's tighter gap and padding", () => {
+    // Same specificity would let the later .hh-menu rule win; the editor's must outrank it.
+    expect(rule('.hh-menu.hh-editor')).toMatch(/gap: 8px/);
+    expect(rule('.hh-menu.hh-editor')).toMatch(/padding: 12px 12px 8px/);
+  });
+
   it('rings the whole chip, close button included, when its tab has keyboard focus', () => {
     expect(rule('.hh-chip:has(> .hh-tab:focus-visible)')).toMatch(/outline: 2px solid/);
     expect(ns.styles).not.toMatch(/\.hh-tab:focus-visible\s*[,{]/); // not the tab button alone

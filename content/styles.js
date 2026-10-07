@@ -175,7 +175,9 @@
    (.hh-tab's all: unset already drops the browser's own ring.) */
 .hh-chip:has(> .hh-tab:focus-visible) { outline: 2px solid var(--hh-focus); outline-offset: -2px; }
 /* Group editor: a name field over Chrome's nine colours. */
-.hh-editor { width: 244px; gap: 10px; padding: 10px; }
+/* Outranks .hh-menu (declared later). Every edge reads 12 px: the colour row's own 4 px of room
+   for the checked ring tops up the gap and the bottom padding. */
+.hh-menu.hh-editor { width: 252px; max-width: none; gap: 8px; padding: 12px 12px 8px; }
 .hh-editor-name {
   all: unset; box-sizing: border-box; height: 32px; padding: 0 10px; border-radius: 8px;
   color: var(--hh-fg); background: var(--hh-chip); border: 1px solid var(--hh-edge);
